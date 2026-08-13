@@ -5,4 +5,7 @@ dist/
 .env
 .env.*
 !.env.example
-
+.npmrc
+.openai/
+AGENTS.md
+package-lock.json
