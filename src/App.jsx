@@ -1,17 +1,5 @@
-import { useEffect, useState } from "react";
-import {
-  ArrowRight,
-  Buildings,
-  CalendarBlank,
-  CheckCircle,
-  House,
-  List,
-  MapPin,
-  Package,
-  Phone,
-  Truck,
-  X,
-} from "@phosphor-icons/react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, CheckCircle, List, MapPin, Phone, X } from "@phosphor-icons/react";
 
 const PHONE_DISPLAY = "(317) 459-6279";
 const PHONE_HREF = "tel:+13174596279";
@@ -20,28 +8,24 @@ const processSteps = [
   {
     number: "01",
     title: "Before the Move",
-    body: "Tell us the details. We’ll help organize a clear plan for your move.",
-    Icon: CalendarBlank,
+    body: "We get to know the details of your move and build a plan that fits your needs.",
+    image: "/assets/before-move.png",
+    alt: "Moving consultant and customer reviewing a move plan together",
   },
   {
     number: "02",
     title: "Moving Day",
-    body: "Your moving plan, timing, and key details stay easy to understand.",
-    Icon: Truck,
+    body: "Our team arrives on time, works carefully, and keeps everything moving smoothly.",
+    image: "/assets/hero-moving-crew.jpg",
+    alt: "Moving crew carrying wrapped furniture toward a moving truck",
   },
   {
     number: "03",
     title: "After Arrival",
-    body: "A focused finish helps make the transition into your new space simpler.",
-    Icon: House,
+    body: "We place your items with care and make sure you’re happy with everything.",
+    image: "/assets/cta-boxes.jpg",
+    alt: "Mover carrying boxes from a truck toward a home",
   },
-];
-
-const services = [
-  { title: "Residential Moving", body: "Moving support for houses and other residential spaces.", Icon: House },
-  { title: "Apartment Moving", body: "A plan built around entrances, stairs, elevators, and timing.", Icon: Buildings },
-  { title: "Packing Services", body: "Packing support designed around your move and belongings.", Icon: Package },
-  { title: "Loading & Unloading", body: "Help with the careful lifting at either end of your move.", Icon: Truck },
 ];
 
 function Brand() {
@@ -67,7 +51,7 @@ function QuoteForm() {
       <div className="form-success" role="status" aria-live="polite">
         <CheckCircle size={54} weight="fill" aria-hidden="true" />
         <h2>Thanks — your move details are ready.</h2>
-        <p>This template is not connected to a live inbox yet. Call us to continue your quote.</p>
+        <p>This staging preview does not send your information. Call us to continue your quote.</p>
         <a className="button button--dark" href={PHONE_HREF}>
           <Phone size={21} weight="fill" aria-hidden="true" />
           Call {PHONE_DISPLAY}
@@ -108,21 +92,36 @@ function QuoteForm() {
         {status === "submitting" ? "Preparing…" : "Request My Quote"}
         <ArrowRight size={21} weight="bold" aria-hidden="true" />
       </button>
-      <p className="form-note">No payment required. Final form destination will be connected before launch.</p>
+      <p className="form-note">No payment required to start your quote.</p>
     </form>
   );
 }
 
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const closeQuoteButton = useRef(null);
 
   useEffect(() => {
     function closeOnEscape(event) {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        setQuoteOpen(false);
+      }
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, []);
+
+  useEffect(() => {
+    if (!quoteOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeQuoteButton.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [quoteOpen]);
 
   return (
     <>
@@ -150,7 +149,7 @@ export function App() {
             <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
             <a href="#contact" onClick={() => setMenuOpen(false)}>Contact</a>
           </nav>
-          <a className="button button--primary nav-quote" href="#quote">Get a Free Quote</a>
+          <button className="button button--primary nav-quote" type="button" onClick={() => setQuoteOpen(true)}>Get a Free Quote</button>
         </div>
       </header>
 
@@ -160,77 +159,56 @@ export function App() {
             <img src="/assets/hero-moving-crew.jpg" alt="Moving crew carefully carrying wrapped furniture toward a moving truck" />
             <div className="hero-copy">
               <p className="eyebrow">Clear planning. Careful moving.</p>
-              <h1 id="hero-title">Moving With Care.<br />From Start to Finish.</h1>
+            <h1 id="hero-title">Moving With Care.<br />From Start to Finish.</h1>
               <span className="red-rule" aria-hidden="true" />
               <p>Your move deserves a clear plan and a team that respects the details.</p>
               <div className="hero-actions">
-                <a className="button button--primary" href="#quote">Get a Free Quote</a>
+                <button className="button button--primary" type="button" onClick={() => setQuoteOpen(true)}>Get a Free Quote</button>
                 <a className="phone-link" href={PHONE_HREF}><Phone size={22} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}</a>
               </div>
             </div>
           </div>
-          <QuoteForm />
         </section>
 
         <div className="red-band" aria-hidden="true" />
 
         <section className="story section" id="about" aria-labelledby="story-title">
           <div className="story-image">
-            <img src="/assets/careful-wrapping.jpg" alt="Mover carefully wrapping a chair inside a home" loading="lazy" />
+            <img src="/assets/careful-wrapping.jpg" alt="Mover carefully wrapping a chair inside a home" />
           </div>
           <div className="story-copy">
             <div className="section-kicker" aria-hidden="true" />
             <p className="eyebrow eyebrow--dark">A straightforward moving experience</p>
             <h2 id="story-title">A Clearer Way to Move</h2>
-            <p>Moving can feel like a lot—there are many details to manage and plenty that can change.</p>
-            <p>We keep the process easy to understand: listen first, plan carefully, and keep the next step clear.</p>
-            <p>The photos and final service claims in this template will be replaced or confirmed with approved client materials before launch.</p>
-            <p className="story-signoff">Clear communication. Careful handling.<br />A better moving experience.</p>
+            <p>Moving can feel like a lot—there are many details to manage and plenty that can go wrong.</p>
+            <p>We keep it simple. We listen, plan carefully, and show up ready to do the job right.</p>
+            <p>From careful packing to smooth delivery, our team treats your home and belongings with respect—just like we would our own.</p>
+            <p className="story-signoff">Clear communication. Careful hands.<br />A better moving experience.</p>
           </div>
         </section>
 
-        <section className="process section" aria-labelledby="process-title">
-          <div className="section-heading">
-            <p className="eyebrow eyebrow--dark">What to expect</p>
-            <h2 id="process-title">A Simple Moving Process</h2>
-          </div>
+        <section className="process section" id="services" aria-labelledby="process-title">
+          <h2 className="visually-hidden" id="process-title">A simple moving process</h2>
           <div className="process-grid">
-            {processSteps.map(({ number, title, body, Icon }) => (
+            {processSteps.map(({ number, title, body, image, alt }) => (
               <article className="process-step" key={number}>
-                <div className="step-top"><span>{number}</span><Icon size={48} weight="fill" aria-hidden="true" /></div>
-                <h3>{title}</h3>
-                <span className="mini-rule" aria-hidden="true" />
+                <div className="step-heading"><span>{number}</span><h3>{title}</h3></div>
+                <img src={image} alt={alt} />
                 <p>{body}</p>
               </article>
             ))}
           </div>
-        </section>
-
-        <section className="services section" id="services" aria-labelledby="services-title">
-          <div className="section-heading">
-            <p className="eyebrow eyebrow--dark">Ways we can help</p>
-            <h2 id="services-title">Moving Services</h2>
-          </div>
-          <div className="services-grid">
-            {services.map(({ title, body, Icon }) => (
-              <article className="service" key={title}>
-                <Icon size={50} weight="fill" aria-hidden="true" />
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
-          </div>
-          <p className="approval-note">Service availability and service areas are draft content pending written client approval.</p>
         </section>
 
         <section className="closing" id="contact" aria-labelledby="closing-title">
-          <div className="closing-photo" aria-hidden="true"><img src="/assets/cta-boxes.jpg" alt="" loading="lazy" /></div>
           <div className="closing-copy">
-            <div className="section-kicker" aria-hidden="true" />
-            <h2 id="closing-title">Let’s Make Your Move Simple.</h2>
-            <p>Tell us where you’re going and when. We’ll use those details to start the conversation.</p>
+            <div className="closing-message">
+              <div className="section-kicker" aria-hidden="true" />
+              <h2 id="closing-title">Let’s Make Your Move Simple.</h2>
+              <p>Tell us where you’re going and when. We’ll use those details to start the conversation.</p>
+            </div>
             <div className="closing-actions">
-              <a className="button button--primary" href="#quote">Get a Free Quote</a>
+              <button className="button button--primary" type="button" onClick={() => setQuoteOpen(true)}>Get a Free Quote</button>
               <a className="phone-link" href={PHONE_HREF}><Phone size={22} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}</a>
             </div>
           </div>
@@ -246,6 +224,25 @@ export function App() {
       <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`}>
         <Phone size={23} weight="fill" aria-hidden="true" /> Call Now
       </a>
+
+      {quoteOpen && (
+        <div className="modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setQuoteOpen(false);
+        }}>
+          <section className="quote-modal" role="dialog" aria-modal="true" aria-label="Request a moving quote">
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Close quote form"
+              onClick={() => setQuoteOpen(false)}
+              ref={closeQuoteButton}
+            >
+              <X size={28} weight="bold" aria-hidden="true" />
+            </button>
+            <QuoteForm />
+          </section>
+        </div>
+      )}
     </>
   );
 }

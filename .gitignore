@@ -6,6 +6,12 @@ dist/
 .env.*
 !.env.example
 .npmrc
+scripts/visual-qa.mjs
+scripts/make-comparison.py
+scripts/compress-raster-assets.py
+qa/reference-converted.jpg
+qa/reference-hero.jpg
+qa/implementation-hero.jpg
 .openai/
 AGENTS.md
 package-lock.json
