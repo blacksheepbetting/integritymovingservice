@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /
+
+# Staging only. Replace this file after written approval to launch and index the production website.
