@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import worker from "../worker/index.js";
 
@@ -32,6 +32,8 @@ test("serves static assets with security headers", async () => {
   assert.equal(await response.text(), "asset");
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.match(response.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+  assert.match(response.headers.get("content-security-policy"), /googletagmanager\.com/);
+  assert.match(response.headers.get("content-security-policy"), /google-analytics\.com/);
 });
 
 test("falls back to index.html for an unknown app route", async () => {
@@ -132,4 +134,22 @@ test("rejects missing required lead fields", async () => {
 
 test("build emits the Cloudflare static asset entry point", async () => {
   await access(new URL("../dist/client/index.html", import.meta.url));
+});
+
+test("build includes canonical metadata and truthful business schema", async () => {
+  const html = await readFile(new URL("../dist/client/index.html", import.meta.url), "utf8");
+  const analytics = await readFile(new URL("../src/analytics.js", import.meta.url), "utf8");
+
+  assert.match(html, /rel="canonical" href="https:\/\/chooseintegritymoving\.com\/"/);
+  assert.match(html, /"@type": "MovingCompany"/);
+  assert.match(analytics, /G-F69TY2D1E6/);
+  assert.doesNotMatch(html, /aggregateRating|BreadcrumbList/);
+});
+
+test("build publishes crawler discovery files", async () => {
+  const robots = await readFile(new URL("../dist/client/robots.txt", import.meta.url), "utf8");
+  const sitemap = await readFile(new URL("../dist/client/sitemap.xml", import.meta.url), "utf8");
+
+  assert.match(robots, /Sitemap: https:\/\/chooseintegritymoving\.com\/sitemap\.xml/);
+  assert.match(sitemap, /<loc>https:\/\/chooseintegritymoving\.com\/<\/loc>/);
 });

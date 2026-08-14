@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle, List, MapPin, Phone, X } from "@phosphor-icons/react";
+import { ArrowRight, CheckCircle, List, MapPin, Phone, Star, X } from "@phosphor-icons/react";
+import { trackEvent } from "./analytics.js";
 
 const PHONE_DISPLAY = "(317) 459-6279";
 const PHONE_HREF = "tel:+13174596279";
+const GOOGLE_PROFILE_URL = "https://www.google.com/maps/place/Integrity+Moving+Service/data=!4m2!3m1!1s0x0:0xbfd72c1420f96d97";
 const TURNSTILE_SITE_KEY = import.meta.env.DEV
   ? "1x00000000000000000000AA"
   : "0x4AAAAAAEP4napRLAcqwIPe";
@@ -31,11 +33,29 @@ const processSteps = [
   },
 ];
 
+const reviewHighlights = [
+  { name: "Carly Cole", quote: "Dan and his team were great!" },
+  { name: "Carly Ellsworth", quote: "We moved from Indiana to Illinois." },
+  { name: "Google customer", quote: "Very professional and on time!" },
+];
+
 function Brand() {
   return (
     <a className="brand" href="#home" aria-label="Integrity Moving Service home">
       <span>Integrity</span>
       <small>Moving Service</small>
+    </a>
+  );
+}
+
+function PhoneLink({ className = "phone-link", location }) {
+  return (
+    <a
+      className={className}
+      href={PHONE_HREF}
+      onClick={() => trackEvent("click_to_call", { link_location: location })}
+    >
+      <Phone size={22} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}
     </a>
   );
 }
@@ -127,6 +147,7 @@ function QuoteForm() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "We could not send your request.");
 
+      trackEvent("generate_lead", { method: "website_quote" });
       setStatus("success");
     } catch (submissionError) {
       setStatus("idle");
@@ -217,6 +238,11 @@ export function App() {
   const [quoteOpen, setQuoteOpen] = useState(false);
   const closeQuoteButton = useRef(null);
 
+  function openQuote(ctaLocation) {
+    trackEvent("quote_form_open", { cta_location: ctaLocation });
+    setQuoteOpen(true);
+  }
+
   useEffect(() => {
     function closeOnEscape(event) {
       if (event.key === "Escape") {
@@ -244,7 +270,7 @@ export function App() {
 
       <header className="site-header" id="home">
         <div className="phone-strip">
-          <a href={PHONE_HREF}><Phone size={18} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}</a>
+          <PhoneLink location="top_bar" />
         </div>
         <div className="nav-shell">
           <Brand />
@@ -262,9 +288,10 @@ export function App() {
             <a href="#home" onClick={() => setMenuOpen(false)}>Home</a>
             <a href="#services" onClick={() => setMenuOpen(false)}>Services</a>
             <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
+            <a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a>
             <a href="#contact" onClick={() => setMenuOpen(false)}>Contact</a>
           </nav>
-          <button className="button button--primary nav-quote" type="button" onClick={() => setQuoteOpen(true)}>Get a Free Quote</button>
+          <button className="button button--primary nav-quote" type="button" onClick={() => openQuote("navigation")}>Get a Free Quote</button>
         </div>
       </header>
 
@@ -278,8 +305,8 @@ export function App() {
               <span className="red-rule" aria-hidden="true" />
               <p>Your move deserves a clear plan and a team that respects the details.</p>
               <div className="hero-actions">
-                <button className="button button--primary" type="button" onClick={() => setQuoteOpen(true)}>Get a Free Quote</button>
-                <a className="phone-link" href={PHONE_HREF}><Phone size={22} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}</a>
+                <button className="button button--primary" type="button" onClick={() => openQuote("hero")}>Get a Free Quote</button>
+                <PhoneLink location="hero" />
               </div>
             </div>
           </div>
@@ -299,6 +326,46 @@ export function App() {
             <p>We keep it simple. We listen, plan carefully, and show up ready to do the job right.</p>
             <p>From careful packing to smooth delivery, our team treats your home and belongings with respect—just like we would our own.</p>
             <p className="story-signoff">Clear communication. Careful hands.<br />A better moving experience.</p>
+          </div>
+        </section>
+
+        <section className="reviews section" id="reviews" aria-labelledby="reviews-title">
+          <div className="reviews-heading">
+            <div>
+              <div className="section-kicker" aria-hidden="true" />
+              <p className="eyebrow eyebrow--dark">Customer feedback on Google</p>
+              <h2 id="reviews-title">A Reputation Built One Move at a Time</h2>
+            </div>
+            <div className="google-rating" role="img" aria-label="Rated 4.6 out of 5 from 129 Google reviews">
+              <strong>4.6</strong>
+              <div className="review-stars" aria-hidden="true">
+                {Array.from({ length: 5 }, (_, index) => <Star key={index} weight="fill" size={22} />)}
+              </div>
+              <span>129 Google reviews</span>
+            </div>
+          </div>
+          <div className="review-grid">
+            {reviewHighlights.map(({ name, quote }) => (
+              <figure className="review-card" key={name}>
+                <div className="review-stars" role="img" aria-label="5 out of 5 stars">
+                  {Array.from({ length: 5 }, (_, index) => <Star key={index} weight="fill" size={18} aria-hidden="true" />)}
+                </div>
+                <blockquote>“{quote}”</blockquote>
+                <figcaption>{name} <span>· Google review</span></figcaption>
+              </figure>
+            ))}
+          </div>
+          <div className="reviews-footer">
+            <p>Rating and excerpts verified on the Integrity Moving Service Google Business Profile on August 14, 2026.</p>
+            <a
+              className="button button--dark"
+              href={GOOGLE_PROFILE_URL}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => trackEvent("google_reviews_click", { link_location: "reviews_section" })}
+            >
+              Read All Reviews on Google <ArrowRight size={20} weight="bold" aria-hidden="true" />
+            </a>
           </div>
         </section>
 
@@ -323,8 +390,8 @@ export function App() {
               <p>Tell us where you’re going and when. We’ll use those details to start the conversation.</p>
             </div>
             <div className="closing-actions">
-              <button className="button button--primary" type="button" onClick={() => setQuoteOpen(true)}>Get a Free Quote</button>
-              <a className="phone-link" href={PHONE_HREF}><Phone size={22} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}</a>
+              <button className="button button--primary" type="button" onClick={() => openQuote("closing")}>Get a Free Quote</button>
+              <PhoneLink location="closing" />
             </div>
           </div>
         </section>
@@ -336,7 +403,7 @@ export function App() {
         <a href="#home">Back to top</a>
       </footer>
 
-      <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`}>
+      <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`} onClick={() => trackEvent("click_to_call", { link_location: "mobile_fixed" })}>
         <Phone size={23} weight="fill" aria-hidden="true" /> Call Now
       </a>
 
