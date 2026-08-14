@@ -57,6 +57,17 @@ test("falls back to index.html for an unknown app route", async () => {
   assert.deepEqual(calls, ["/flow/step-two?source=share", "/index.html"]);
 });
 
+test("redirects www traffic to the canonical domain", async () => {
+  const response = await worker.fetch(
+    new Request("https://www.chooseintegritymoving.com/services?source=www"),
+    {},
+  );
+
+  assert.equal(response.status, 308);
+  assert.equal(response.headers.get("location"), "https://chooseintegritymoving.com/services?source=www");
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+});
+
 test("accepts a validated quote and sends it to the fixed inbox", async () => {
   const messages = [];
   const request = new Request("https://chooseintegritymoving.com/api/leads", {

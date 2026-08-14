@@ -190,6 +190,11 @@ async function handleLeadRequest(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.hostname === "www.chooseintegritymoving.com" && ["GET", "HEAD"].includes(request.method)) {
+      url.hostname = "chooseintegritymoving.com";
+      return withSecurityHeaders(Response.redirect(url, 308));
+    }
+
     if (url.pathname === "/api/leads") return handleLeadRequest(request, env);
 
     let response = await env.ASSETS.fetch(request);
