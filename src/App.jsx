@@ -3,6 +3,9 @@ import { ArrowRight, CheckCircle, List, MapPin, Phone, X } from "@phosphor-icons
 
 const PHONE_DISPLAY = "(317) 459-6279";
 const PHONE_HREF = "tel:+13174596279";
+const TURNSTILE_SITE_KEY = import.meta.env.DEV
+  ? "1x00000000000000000000AA"
+  : "0x4AAAAAAEP4napRLAcqwIPe";
 
 const processSteps = [
   {
@@ -39,19 +42,108 @@ function Brand() {
 
 function QuoteForm() {
   const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileContainer = useRef(null);
+  const turnstileWidgetId = useRef(null);
 
-  function submitQuote(event) {
+  useEffect(() => {
+    let cancelled = false;
+
+    function renderTurnstile() {
+      if (cancelled || !turnstileContainer.current || !window.turnstile) return;
+      if (turnstileWidgetId.current !== null) return;
+
+      turnstileWidgetId.current = window.turnstile.render(turnstileContainer.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: "light",
+        callback: (token) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(""),
+        "error-callback": () => {
+          setTurnstileToken("");
+          setError("The security check could not load. Please refresh or call us for help.");
+        },
+      });
+    }
+
+    if (window.turnstile) {
+      renderTurnstile();
+    } else {
+      let script = document.getElementById("cloudflare-turnstile-script");
+      if (!script) {
+        script = document.createElement("script");
+        script.id = "cloudflare-turnstile-script";
+        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener("load", renderTurnstile);
+    }
+
+    return () => {
+      cancelled = true;
+      const script = document.getElementById("cloudflare-turnstile-script");
+      script?.removeEventListener("load", renderTurnstile);
+      if (turnstileWidgetId.current !== null && window.turnstile) {
+        window.turnstile.remove(turnstileWidgetId.current);
+        turnstileWidgetId.current = null;
+      }
+    };
+  }, []);
+
+  async function submitQuote(event) {
     event.preventDefault();
+    setError("");
+
+    if (!turnstileToken) {
+      setError("Please complete the security check before submitting.");
+      return;
+    }
+
     setStatus("submitting");
-    window.setTimeout(() => setStatus("success"), 600);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: formData.get("name"),
+          email: formData.get("email"),
+          phone: formData.get("phone"),
+          movingFrom: formData.get("movingFrom"),
+          movingTo: formData.get("movingTo"),
+          moveDate: formData.get("moveDate"),
+          details: formData.get("details"),
+          company: formData.get("company"),
+          consent: formData.get("consent") === "yes",
+          turnstileToken,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "We could not send your request.");
+
+      setStatus("success");
+    } catch (submissionError) {
+      setStatus("idle");
+      setError(`${submissionError.message} Please try again or call ${PHONE_DISPLAY}.`);
+      setTurnstileToken("");
+      if (turnstileWidgetId.current !== null && window.turnstile) {
+        window.turnstile.reset(turnstileWidgetId.current);
+      }
+    }
   }
 
   if (status === "success") {
     return (
       <div className="form-success" role="status" aria-live="polite">
         <CheckCircle size={54} weight="fill" aria-hidden="true" />
-        <h2>Thanks — your move details are ready.</h2>
-        <p>This staging preview does not send your information. Call us to continue your quote.</p>
+        <h2>Thanks — we received your quote request.</h2>
+        <p>Integrity Moving Service will use your details to follow up about your move.</p>
         <a className="button button--dark" href={PHONE_HREF}>
           <Phone size={21} weight="fill" aria-hidden="true" />
           Call {PHONE_DISPLAY}
@@ -67,16 +159,22 @@ function QuoteForm() {
       <h2>Get a Free Quote</h2>
       <p className="form-intro">Tell Us About Your Move</p>
 
-      <label htmlFor="moving-from">Moving From</label>
+      <label htmlFor="customer-name">Your Name</label>
+      <input id="customer-name" name="name" autoComplete="name" maxLength="100" required />
+
+      <label htmlFor="email-address">Email Address <span>(optional)</span></label>
+      <input id="email-address" name="email" type="email" autoComplete="email" maxLength="200" />
+
+      <label htmlFor="moving-from">Moving From <span>(city or ZIP)</span></label>
       <div className="input-wrap">
         <MapPin size={21} weight="fill" aria-hidden="true" />
-        <input id="moving-from" name="movingFrom" autoComplete="street-address" required />
+        <input id="moving-from" name="movingFrom" autoComplete="postal-code" maxLength="120" required />
       </div>
 
-      <label htmlFor="moving-to">Moving To</label>
+      <label htmlFor="moving-to">Moving To <span>(city or ZIP)</span></label>
       <div className="input-wrap">
         <MapPin size={21} weight="fill" aria-hidden="true" />
-        <input id="moving-to" name="movingTo" autoComplete="street-address" required />
+        <input id="moving-to" name="movingTo" autoComplete="postal-code" maxLength="120" required />
       </div>
 
       <label htmlFor="move-date">Move Date</label>
@@ -85,11 +183,28 @@ function QuoteForm() {
       <label htmlFor="phone-number">Phone Number</label>
       <div className="input-wrap">
         <Phone size={21} weight="fill" aria-hidden="true" />
-        <input id="phone-number" name="phone" type="tel" inputMode="tel" autoComplete="tel" required />
+        <input id="phone-number" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength="30" required />
       </div>
 
-      <button className="button button--primary button--wide" type="submit" disabled={status === "submitting"}>
-        {status === "submitting" ? "Preparing…" : "Request My Quote"}
+      <label htmlFor="move-details">Anything Else We Should Know? <span>(optional)</span></label>
+      <textarea id="move-details" name="details" rows="4" maxLength="1500" />
+
+      <div className="quote-honeypot" aria-hidden="true">
+        <label htmlFor="company-name">Company</label>
+        <input id="company-name" name="company" tabIndex="-1" autoComplete="off" />
+      </div>
+
+      <div className="turnstile-wrap" ref={turnstileContainer} aria-label="Security check" />
+
+      <label className="consent-row">
+        <input name="consent" type="checkbox" value="yes" required />
+        <span>I agree that Integrity Moving Service may contact me about this quote request.</span>
+      </label>
+
+      {error && <p className="form-error" role="alert">{error}</p>}
+
+      <button className="button button--primary button--wide" type="submit" disabled={status === "submitting" || !turnstileToken}>
+        {status === "submitting" ? "Sending…" : "Request My Quote"}
         <ArrowRight size={21} weight="bold" aria-hidden="true" />
       </button>
       <p className="form-note">No payment required to start your quote.</p>
