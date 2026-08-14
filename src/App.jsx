@@ -1,47 +1,42 @@
-import { useEffect, useState } from "react";
-import {
-  ArrowRight,
-  Buildings,
-  CalendarBlank,
-  CheckCircle,
-  House,
-  List,
-  MapPin,
-  Package,
-  Phone,
-  Truck,
-  X,
-} from "@phosphor-icons/react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, CheckCircle, List, MapPin, Phone, Star, X } from "@phosphor-icons/react";
+import { trackEvent } from "./analytics.js";
 
 const PHONE_DISPLAY = "(317) 459-6279";
 const PHONE_HREF = "tel:+13174596279";
+const GOOGLE_PROFILE_URL = "https://www.google.com/maps/place/Integrity+Moving+Service/data=!4m2!3m1!1s0x0:0xbfd72c1420f96d97";
+const TURNSTILE_SITE_KEY = import.meta.env.DEV
+  ? "1x00000000000000000000AA"
+  : "0x4AAAAAAEP4napRLAcqwIPe";
 
 const processSteps = [
   {
     number: "01",
     title: "Before the Move",
-    body: "Tell us the details. We’ll help organize a clear plan for your move.",
-    Icon: CalendarBlank,
+    body: "We get to know the details of your move and build a plan that fits your needs.",
+    image: "/assets/before-move.png",
+    alt: "Moving consultant and customer reviewing a move plan together",
   },
   {
     number: "02",
     title: "Moving Day",
-    body: "Your moving plan, timing, and key details stay easy to understand.",
-    Icon: Truck,
+    body: "Our team arrives on time, works carefully, and keeps everything moving smoothly.",
+    image: "/assets/hero-moving-crew.jpg",
+    alt: "Moving crew carrying wrapped furniture toward a moving truck",
   },
   {
     number: "03",
     title: "After Arrival",
-    body: "A focused finish helps make the transition into your new space simpler.",
-    Icon: House,
+    body: "We place your items with care and make sure you’re happy with everything.",
+    image: "/assets/cta-boxes.jpg",
+    alt: "Mover carrying boxes from a truck toward a home",
   },
 ];
 
-const services = [
-  { title: "Residential Moving", body: "Moving support for houses and other residential spaces.", Icon: House },
-  { title: "Apartment Moving", body: "A plan built around entrances, stairs, elevators, and timing.", Icon: Buildings },
-  { title: "Packing Services", body: "Packing support designed around your move and belongings.", Icon: Package },
-  { title: "Loading & Unloading", body: "Help with the careful lifting at either end of your move.", Icon: Truck },
+const reviewHighlights = [
+  { name: "Carly Cole", quote: "Dan and his team were great!" },
+  { name: "Carly Ellsworth", quote: "We moved from Indiana to Illinois." },
+  { name: "Google customer", quote: "Very professional and on time!" },
 ];
 
 function Brand() {
@@ -53,21 +48,123 @@ function Brand() {
   );
 }
 
+function PhoneLink({ className = "phone-link", location }) {
+  return (
+    <a
+      className={className}
+      href={PHONE_HREF}
+      onClick={() => trackEvent("click_to_call", { link_location: location })}
+    >
+      <Phone size={22} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}
+    </a>
+  );
+}
+
 function QuoteForm() {
   const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileContainer = useRef(null);
+  const turnstileWidgetId = useRef(null);
 
-  function submitQuote(event) {
+  useEffect(() => {
+    let cancelled = false;
+
+    function renderTurnstile() {
+      if (cancelled || !turnstileContainer.current || !window.turnstile) return;
+      if (turnstileWidgetId.current !== null) return;
+
+      turnstileWidgetId.current = window.turnstile.render(turnstileContainer.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: "light",
+        callback: (token) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(""),
+        "error-callback": () => {
+          setTurnstileToken("");
+          setError("The security check could not load. Please refresh or call us for help.");
+        },
+      });
+    }
+
+    if (window.turnstile) {
+      renderTurnstile();
+    } else {
+      let script = document.getElementById("cloudflare-turnstile-script");
+      if (!script) {
+        script = document.createElement("script");
+        script.id = "cloudflare-turnstile-script";
+        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener("load", renderTurnstile);
+    }
+
+    return () => {
+      cancelled = true;
+      const script = document.getElementById("cloudflare-turnstile-script");
+      script?.removeEventListener("load", renderTurnstile);
+      if (turnstileWidgetId.current !== null && window.turnstile) {
+        window.turnstile.remove(turnstileWidgetId.current);
+        turnstileWidgetId.current = null;
+      }
+    };
+  }, []);
+
+  async function submitQuote(event) {
     event.preventDefault();
+    setError("");
+
+    if (!turnstileToken) {
+      setError("Please complete the security check before submitting.");
+      return;
+    }
+
     setStatus("submitting");
-    window.setTimeout(() => setStatus("success"), 600);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: formData.get("name"),
+          email: formData.get("email"),
+          phone: formData.get("phone"),
+          movingFrom: formData.get("movingFrom"),
+          movingTo: formData.get("movingTo"),
+          moveDate: formData.get("moveDate"),
+          details: formData.get("details"),
+          company: formData.get("company"),
+          consent: formData.get("consent") === "yes",
+          turnstileToken,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "We could not send your request.");
+
+      trackEvent("generate_lead", { method: "website_quote" });
+      setStatus("success");
+    } catch (submissionError) {
+      setStatus("idle");
+      setError(`${submissionError.message} Please try again or call ${PHONE_DISPLAY}.`);
+      setTurnstileToken("");
+      if (turnstileWidgetId.current !== null && window.turnstile) {
+        window.turnstile.reset(turnstileWidgetId.current);
+      }
+    }
   }
 
   if (status === "success") {
     return (
       <div className="form-success" role="status" aria-live="polite">
         <CheckCircle size={54} weight="fill" aria-hidden="true" />
-        <h2>Thanks — your move details are ready.</h2>
-        <p>This template is not connected to a live inbox yet. Call us to continue your quote.</p>
+        <h2>Thanks — we received your quote request.</h2>
+        <p>Integrity Moving Service will use your details to follow up about your move.</p>
         <a className="button button--dark" href={PHONE_HREF}>
           <Phone size={21} weight="fill" aria-hidden="true" />
           Call {PHONE_DISPLAY}
@@ -83,16 +180,22 @@ function QuoteForm() {
       <h2>Get a Free Quote</h2>
       <p className="form-intro">Tell Us About Your Move</p>
 
-      <label htmlFor="moving-from">Moving From</label>
+      <label htmlFor="customer-name">Your Name</label>
+      <input id="customer-name" name="name" autoComplete="name" maxLength="100" required />
+
+      <label htmlFor="email-address">Email Address <span>(optional)</span></label>
+      <input id="email-address" name="email" type="email" autoComplete="email" maxLength="200" />
+
+      <label htmlFor="moving-from">Moving From <span>(city or ZIP)</span></label>
       <div className="input-wrap">
         <MapPin size={21} weight="fill" aria-hidden="true" />
-        <input id="moving-from" name="movingFrom" autoComplete="street-address" required />
+        <input id="moving-from" name="movingFrom" autoComplete="postal-code" maxLength="120" required />
       </div>
 
-      <label htmlFor="moving-to">Moving To</label>
+      <label htmlFor="moving-to">Moving To <span>(city or ZIP)</span></label>
       <div className="input-wrap">
         <MapPin size={21} weight="fill" aria-hidden="true" />
-        <input id="moving-to" name="movingTo" autoComplete="street-address" required />
+        <input id="moving-to" name="movingTo" autoComplete="postal-code" maxLength="120" required />
       </div>
 
       <label htmlFor="move-date">Move Date</label>
@@ -101,28 +204,65 @@ function QuoteForm() {
       <label htmlFor="phone-number">Phone Number</label>
       <div className="input-wrap">
         <Phone size={21} weight="fill" aria-hidden="true" />
-        <input id="phone-number" name="phone" type="tel" inputMode="tel" autoComplete="tel" required />
+        <input id="phone-number" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength="30" required />
       </div>
 
-      <button className="button button--primary button--wide" type="submit" disabled={status === "submitting"}>
-        {status === "submitting" ? "Preparing…" : "Request My Quote"}
+      <label htmlFor="move-details">Anything Else We Should Know? <span>(optional)</span></label>
+      <textarea id="move-details" name="details" rows="4" maxLength="1500" />
+
+      <div className="quote-honeypot" aria-hidden="true">
+        <label htmlFor="company-name">Company</label>
+        <input id="company-name" name="company" tabIndex="-1" autoComplete="off" />
+      </div>
+
+      <div className="turnstile-wrap" ref={turnstileContainer} aria-label="Security check" />
+
+      <label className="consent-row">
+        <input name="consent" type="checkbox" value="yes" required />
+        <span>I agree that Integrity Moving Service may contact me about this quote request.</span>
+      </label>
+
+      {error && <p className="form-error" role="alert">{error}</p>}
+
+      <button className="button button--primary button--wide" type="submit" disabled={status === "submitting" || !turnstileToken}>
+        {status === "submitting" ? "Sending…" : "Request My Quote"}
         <ArrowRight size={21} weight="bold" aria-hidden="true" />
       </button>
-      <p className="form-note">No payment required. Final form destination will be connected before launch.</p>
+      <p className="form-note">No payment required to start your quote.</p>
     </form>
   );
 }
 
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const closeQuoteButton = useRef(null);
+
+  function openQuote(ctaLocation) {
+    trackEvent("quote_form_open", { cta_location: ctaLocation });
+    setQuoteOpen(true);
+  }
 
   useEffect(() => {
     function closeOnEscape(event) {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        setQuoteOpen(false);
+      }
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, []);
+
+  useEffect(() => {
+    if (!quoteOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeQuoteButton.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [quoteOpen]);
 
   return (
     <>
@@ -130,7 +270,7 @@ export function App() {
 
       <header className="site-header" id="home">
         <div className="phone-strip">
-          <a href={PHONE_HREF}><Phone size={18} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}</a>
+          <PhoneLink location="top_bar" />
         </div>
         <div className="nav-shell">
           <Brand />
@@ -148,9 +288,10 @@ export function App() {
             <a href="#home" onClick={() => setMenuOpen(false)}>Home</a>
             <a href="#services" onClick={() => setMenuOpen(false)}>Services</a>
             <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
+            <a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a>
             <a href="#contact" onClick={() => setMenuOpen(false)}>Contact</a>
           </nav>
-          <a className="button button--primary nav-quote" href="#quote">Get a Free Quote</a>
+          <button className="button button--primary nav-quote" type="button" onClick={() => openQuote("navigation")}>Get a Free Quote</button>
         </div>
       </header>
 
@@ -160,78 +301,97 @@ export function App() {
             <img src="/assets/hero-moving-crew.jpg" alt="Moving crew carefully carrying wrapped furniture toward a moving truck" />
             <div className="hero-copy">
               <p className="eyebrow">Clear planning. Careful moving.</p>
-              <h1 id="hero-title">Moving With Care.<br />From Start to Finish.</h1>
+            <h1 id="hero-title">Moving With Care.<br />From Start to Finish.</h1>
               <span className="red-rule" aria-hidden="true" />
               <p>Your move deserves a clear plan and a team that respects the details.</p>
               <div className="hero-actions">
-                <a className="button button--primary" href="#quote">Get a Free Quote</a>
-                <a className="phone-link" href={PHONE_HREF}><Phone size={22} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}</a>
+                <button className="button button--primary" type="button" onClick={() => openQuote("hero")}>Get a Free Quote</button>
+                <PhoneLink location="hero" />
               </div>
             </div>
           </div>
-          <QuoteForm />
         </section>
 
         <div className="red-band" aria-hidden="true" />
 
         <section className="story section" id="about" aria-labelledby="story-title">
           <div className="story-image">
-            <img src="/assets/careful-wrapping.jpg" alt="Mover carefully wrapping a chair inside a home" loading="lazy" />
+            <img src="/assets/careful-wrapping.jpg" alt="Mover carefully wrapping a chair inside a home" />
           </div>
           <div className="story-copy">
             <div className="section-kicker" aria-hidden="true" />
             <p className="eyebrow eyebrow--dark">A straightforward moving experience</p>
             <h2 id="story-title">A Clearer Way to Move</h2>
-            <p>Moving can feel like a lot—there are many details to manage and plenty that can change.</p>
-            <p>We keep the process easy to understand: listen first, plan carefully, and keep the next step clear.</p>
-            <p>The photos and final service claims in this template will be replaced or confirmed with approved client materials before launch.</p>
-            <p className="story-signoff">Clear communication. Careful handling.<br />A better moving experience.</p>
+            <p>Moving can feel like a lot—there are many details to manage and plenty that can go wrong.</p>
+            <p>We keep it simple. We listen, plan carefully, and show up ready to do the job right.</p>
+            <p>From careful packing to smooth delivery, our team treats your home and belongings with respect—just like we would our own.</p>
+            <p className="story-signoff">Clear communication. Careful hands.<br />A better moving experience.</p>
           </div>
         </section>
 
-        <section className="process section" aria-labelledby="process-title">
-          <div className="section-heading">
-            <p className="eyebrow eyebrow--dark">What to expect</p>
-            <h2 id="process-title">A Simple Moving Process</h2>
+        <section className="reviews section" id="reviews" aria-labelledby="reviews-title">
+          <div className="reviews-heading">
+            <div>
+              <div className="section-kicker" aria-hidden="true" />
+              <p className="eyebrow eyebrow--dark">Customer feedback on Google</p>
+              <h2 id="reviews-title">A Reputation Built One Move at a Time</h2>
+            </div>
+            <div className="google-rating" role="img" aria-label="Rated 4.6 out of 5 from 129 Google reviews">
+              <strong>4.6</strong>
+              <div className="review-stars" aria-hidden="true">
+                {Array.from({ length: 5 }, (_, index) => <Star key={index} weight="fill" size={22} />)}
+              </div>
+              <span>129 Google reviews</span>
+            </div>
           </div>
+          <div className="review-grid">
+            {reviewHighlights.map(({ name, quote }) => (
+              <figure className="review-card" key={name}>
+                <div className="review-stars" role="img" aria-label="5 out of 5 stars">
+                  {Array.from({ length: 5 }, (_, index) => <Star key={index} weight="fill" size={18} aria-hidden="true" />)}
+                </div>
+                <blockquote>“{quote}”</blockquote>
+                <figcaption>{name} <span>· Google review</span></figcaption>
+              </figure>
+            ))}
+          </div>
+          <div className="reviews-footer">
+            <p>Rating and excerpts verified on the Integrity Moving Service Google Business Profile on August 14, 2026.</p>
+            <a
+              className="button button--dark"
+              href={GOOGLE_PROFILE_URL}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => trackEvent("google_reviews_click", { link_location: "reviews_section" })}
+            >
+              Read All Reviews on Google <ArrowRight size={20} weight="bold" aria-hidden="true" />
+            </a>
+          </div>
+        </section>
+
+        <section className="process section" id="services" aria-labelledby="process-title">
+          <h2 className="visually-hidden" id="process-title">A simple moving process</h2>
           <div className="process-grid">
-            {processSteps.map(({ number, title, body, Icon }) => (
+            {processSteps.map(({ number, title, body, image, alt }) => (
               <article className="process-step" key={number}>
-                <div className="step-top"><span>{number}</span><Icon size={48} weight="fill" aria-hidden="true" /></div>
-                <h3>{title}</h3>
-                <span className="mini-rule" aria-hidden="true" />
+                <div className="step-heading"><span>{number}</span><h3>{title}</h3></div>
+                <img src={image} alt={alt} />
                 <p>{body}</p>
               </article>
             ))}
           </div>
-        </section>
-
-        <section className="services section" id="services" aria-labelledby="services-title">
-          <div className="section-heading">
-            <p className="eyebrow eyebrow--dark">Ways we can help</p>
-            <h2 id="services-title">Moving Services</h2>
-          </div>
-          <div className="services-grid">
-            {services.map(({ title, body, Icon }) => (
-              <article className="service" key={title}>
-                <Icon size={50} weight="fill" aria-hidden="true" />
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
-          </div>
-          <p className="approval-note">Service availability and service areas are draft content pending written client approval.</p>
         </section>
 
         <section className="closing" id="contact" aria-labelledby="closing-title">
-          <div className="closing-photo" aria-hidden="true"><img src="/assets/cta-boxes.jpg" alt="" loading="lazy" /></div>
           <div className="closing-copy">
-            <div className="section-kicker" aria-hidden="true" />
-            <h2 id="closing-title">Let’s Make Your Move Simple.</h2>
-            <p>Tell us where you’re going and when. We’ll use those details to start the conversation.</p>
+            <div className="closing-message">
+              <div className="section-kicker" aria-hidden="true" />
+              <h2 id="closing-title">Let’s Make Your Move Simple.</h2>
+              <p>Tell us where you’re going and when. We’ll use those details to start the conversation.</p>
+            </div>
             <div className="closing-actions">
-              <a className="button button--primary" href="#quote">Get a Free Quote</a>
-              <a className="phone-link" href={PHONE_HREF}><Phone size={22} weight="fill" aria-hidden="true" /> Call {PHONE_DISPLAY}</a>
+              <button className="button button--primary" type="button" onClick={() => openQuote("closing")}>Get a Free Quote</button>
+              <PhoneLink location="closing" />
             </div>
           </div>
         </section>
@@ -243,9 +403,28 @@ export function App() {
         <a href="#home">Back to top</a>
       </footer>
 
-      <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`}>
+      <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`} onClick={() => trackEvent("click_to_call", { link_location: "mobile_fixed" })}>
         <Phone size={23} weight="fill" aria-hidden="true" /> Call Now
       </a>
+
+      {quoteOpen && (
+        <div className="modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setQuoteOpen(false);
+        }}>
+          <section className="quote-modal" role="dialog" aria-modal="true" aria-label="Request a moving quote">
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Close quote form"
+              onClick={() => setQuoteOpen(false)}
+              ref={closeQuoteButton}
+            >
+              <X size={28} weight="bold" aria-hidden="true" />
+            </button>
+            <QuoteForm />
+          </section>
+        </div>
+      )}
     </>
   );
 }
