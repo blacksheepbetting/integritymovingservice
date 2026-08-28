@@ -200,16 +200,14 @@ export default {
       return withSecurityHeaders(Response.redirect(url, 308));
     }
 
-    if (url.pathname === "/api/leads") return handleLeadRequest(request, env);
-
-    let assetRequest = request;
-    if (["/junk-removal", "/junk-removal/"].includes(url.pathname)) {
-      const pageUrl = new URL(request.url);
-      pageUrl.pathname = "/junk-removal/index.html";
-      assetRequest = new Request(pageUrl, request);
+    if (url.pathname === "/junk-removal" && ["GET", "HEAD"].includes(request.method)) {
+      url.pathname = "/junk-removal/";
+      return withSecurityHeaders(Response.redirect(url, 308));
     }
 
-    let response = await env.ASSETS.fetch(assetRequest);
+    if (url.pathname === "/api/leads") return handleLeadRequest(request, env);
+
+    let response = await env.ASSETS.fetch(request);
     const acceptsHtml = request.headers.get("accept")?.includes("text/html");
 
     if (response.status === 404 && acceptsHtml && ["GET", "HEAD"].includes(request.method)) {

@@ -93,10 +93,22 @@ test("accepts a validated quote and sends it to the fixed inbox", async () => {
   assert.match(messages[0].text, /Packing services needed: No/);
 });
 
-test("serves the dedicated junk-removal page for its clean route", async () => {
-  const calls = [];
+test("redirects the clean junk-removal route to its canonical trailing-slash URL", async () => {
   const response = await worker.fetch(
     new Request("https://chooseintegritymoving.com/junk-removal", {
+      headers: { accept: "text/html" },
+    }),
+    { ASSETS: assetsReturning() },
+  );
+
+  assert.equal(response.status, 308);
+  assert.equal(response.headers.get("location"), "https://chooseintegritymoving.com/junk-removal/");
+});
+
+test("serves the dedicated junk-removal page at its canonical URL", async () => {
+  const calls = [];
+  const response = await worker.fetch(
+    new Request("https://chooseintegritymoving.com/junk-removal/", {
       headers: { accept: "text/html" },
     }),
     {
@@ -111,7 +123,7 @@ test("serves the dedicated junk-removal page for its clean route", async () => {
   );
 
   assert.equal(response.status, 200);
-  assert.deepEqual(calls, ["/junk-removal/index.html"]);
+  assert.deepEqual(calls, ["/junk-removal/"]);
 });
 
 test("rejects an expired security check without sending email", async () => {
