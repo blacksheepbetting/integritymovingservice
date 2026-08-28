@@ -159,6 +159,33 @@ p { line-height: 1.65; }
 .footer > a:last-child { font-size: .82rem; font-weight: 800; }
 .mobile-call { display: none; }
 
+.button--outline-light { border-color: #fff; color: #fff; background: transparent; }
+.button--outline-light:hover { background: #fff; color: var(--black); }
+.breadcrumbs { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 1rem 0; }
+.breadcrumbs ol { display: flex; gap: .65rem; align-items: center; margin: 0; padding: 0; list-style: none; font-size: .78rem; font-weight: 700; }
+.breadcrumbs li + li::before { content: "/"; margin-right: .65rem; color: var(--muted); }
+.breadcrumbs a { color: var(--red-dark); }
+.service-hero { min-height: 520px; display: grid; align-items: center; background: linear-gradient(90deg, rgba(0,0,0,.95), rgba(0,0,0,.65)), url("/assets/cta-boxes.jpg") center/cover no-repeat; color: #fff; }
+.service-hero__copy { width: min(1180px, calc(100% - 48px)); margin-inline: auto; padding-block: 5rem; }
+.service-hero__copy h1 { max-width: 820px; }
+.service-hero__copy > p:not(.eyebrow) { max-width: 650px; margin: 1.5rem 0 2rem; font-size: 1.08rem; color: #eee; }
+.service-content { padding-block: clamp(4rem, 7vw, 6.5rem); display: grid; grid-template-columns: .8fr 1.2fr; gap: clamp(2rem, 6vw, 6rem); }
+.service-copy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.service-copy-grid p { margin: 0; color: #3d3d3d; }
+.service-steps { padding-block: clamp(4rem, 6vw, 5.5rem); background: var(--soft); }
+.service-steps__inner > h2 { max-width: 760px; }
+.service-step-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2.5rem; }
+.service-step-grid article { padding: 2rem; border-top: 5px solid var(--red); background: #fff; }
+.service-step-grid span { display: block; margin-bottom: 1rem; color: var(--red); font: 800 2.6rem/1 var(--display); }
+.service-step-grid h3 { margin-bottom: .8rem; }
+.service-step-grid p { margin: 0; color: #444; }
+.service-faq { padding-block: clamp(4rem, 6vw, 6rem); }
+.service-faq > h2 { max-width: 760px; }
+.service-faq details { max-width: 900px; border-top: 1px solid var(--line); padding: 1.15rem 0; }
+.service-faq details:last-child { border-bottom: 1px solid var(--line); }
+.service-faq summary { cursor: pointer; font: 700 1.35rem/1.25 var(--display); }
+.service-faq details p { max-width: 760px; margin: 1rem 0 0; color: #444; }
+
 @media (max-width: 900px) {
   .nav-shell { grid-template-columns: 1fr auto auto; }
   .menu-button { display: inline-grid; place-items: center; }
@@ -172,6 +199,8 @@ p { line-height: 1.65; }
   .reviews-heading { align-items: stretch; }
   .review-grid { grid-template-columns: 1fr; }
   .review-card { min-height: 180px; }
+  .service-content { grid-template-columns: 1fr; }
+  .service-step-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
@@ -211,6 +240,11 @@ p { line-height: 1.65; }
   .closing-copy { width: min(100% - 48px, 1180px); padding: 3.5rem 0 4rem; display: block; }
   .closing-actions { margin-top: 2rem; }
   .footer { grid-template-columns: 1fr; gap: 1.5rem; padding: 3rem 24px; }
+  .breadcrumbs { width: min(100% - 40px, 1180px); }
+  .service-hero { min-height: 560px; }
+  .service-hero__copy { width: min(100% - 40px, 1180px); padding-block: 4rem; }
+  .service-copy-grid { grid-template-columns: 1fr; }
+  .service-step-grid article { padding: 1.5rem; }
   .mobile-call { position: fixed; z-index: 80; left: 0; right: 0; bottom: 0; min-height: 64px; display: flex; align-items: center; justify-content: center; gap: .65rem; background: var(--red); color: #fff; font-weight: 800; text-decoration: none; box-shadow: 0 -4px 18px rgba(0,0,0,.2); }
 }
 

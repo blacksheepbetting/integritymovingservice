@@ -277,6 +277,7 @@ function SiteHeader({ menuOpen, setMenuOpen, openQuote, onHomePage = false }) {
         <nav id="primary-navigation" className={menuOpen ? "nav-links nav-links--open" : "nav-links"} aria-label="Primary navigation">
           <a href={`${sectionPrefix}#home`} onClick={closeMenu}>Home</a>
           <a href={`${sectionPrefix}#services`} onClick={closeMenu}>Services</a>
+          <a href="/junk-removal/" onClick={closeMenu}>Junk Removal</a>
           <a href={`${sectionPrefix}#about`} onClick={closeMenu}>About</a>
           <a href={`${sectionPrefix}#reviews`} onClick={closeMenu}>Reviews</a>
           <a href={`${sectionPrefix}#contact`} onClick={closeMenu}>Contact</a>
@@ -320,6 +321,85 @@ function QuoteModal({ quoteOpen, setQuoteOpen, closeQuoteButton }) {
   );
 }
 
+function JunkRemovalPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQuote, closeQuoteButton }) {
+  return (
+    <>
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <SiteHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} openQuote={openQuote} />
+
+      <main id="main-content" className="service-page">
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          <ol>
+            <li><a href="/">Home</a></li>
+            <li aria-current="page">Junk Removal</li>
+          </ol>
+        </nav>
+
+        <section className="service-hero" aria-labelledby="junk-removal-title">
+          <div className="service-hero__copy">
+            <p className="eyebrow">Junk removal service</p>
+            <h1 id="junk-removal-title">Junk Removal in Indianapolis</h1>
+            <span className="red-rule" aria-hidden="true" />
+            <p>Clear out unwanted household items with a straightforward plan and a team focused on careful, respectful service.</p>
+            <div className="hero-actions">
+              <PhoneLink location="junk_removal_hero" />
+              <a className="button button--outline-light" href="#junk-removal-details">Learn What to Expect</a>
+            </div>
+          </div>
+        </section>
+
+        <section className="service-content section" id="junk-removal-details" aria-labelledby="junk-details-title">
+          <div>
+            <p className="eyebrow eyebrow--dark">A simpler cleanout</p>
+            <h2 id="junk-details-title">Help With Household Junk and Unwanted Items</h2>
+          </div>
+          <div className="service-copy-grid">
+            <p>Common requests may include unwanted furniture, boxed household items, and non-hazardous clutter. Every request is reviewed first so the item type, access, volume, and scheduling needs are clear.</p>
+            <p>We do not assume that every material can be removed. Hazardous, regulated, oversized, or restricted items require separate confirmation and may not be accepted.</p>
+          </div>
+        </section>
+
+        <section className="service-steps" aria-labelledby="junk-process-title">
+          <div className="section service-steps__inner">
+            <p className="eyebrow eyebrow--dark">What to expect</p>
+            <h2 id="junk-process-title">A Clear Three-Step Process</h2>
+            <div className="service-step-grid">
+              <article><span>01</span><h3>Describe the Items</h3><p>Share what needs to go, where it is located, and any access details.</p></article>
+              <article><span>02</span><h3>Confirm the Scope</h3><p>Integrity confirms availability, accepted items, timing, and any important limitations.</p></article>
+              <article><span>03</span><h3>Schedule the Removal</h3><p>Once the details are approved, choose an available time for the requested service.</p></article>
+            </div>
+          </div>
+        </section>
+
+        <section className="service-faq section" aria-labelledby="junk-faq-title">
+          <p className="eyebrow eyebrow--dark">Junk removal questions</p>
+          <h2 id="junk-faq-title">Frequently Asked Questions</h2>
+          <details><summary>What items can Integrity remove?</summary><p>Accepted items are confirmed case by case. Send a description or photos before scheduling so the team can identify any restricted or unsupported materials.</p></details>
+          <details><summary>Is same-day junk removal available?</summary><p>Availability is not guaranteed. Call to confirm the current schedule and whether the requested work can be accommodated.</p></details>
+          <details><summary>Do you remove hazardous materials?</summary><p>Call before making plans involving hazardous, regulated, oversized, or restricted materials. The specific item must be reviewed before scheduling.</p></details>
+        </section>
+
+        <section className="closing" id="contact" aria-labelledby="junk-cta-title">
+          <div className="closing-copy">
+            <div className="closing-message">
+              <div className="section-kicker" aria-hidden="true" />
+              <h2 id="junk-cta-title">Ask About Junk Removal</h2>
+              <p>Call with a description of the items and the pickup location. Availability and service details will be confirmed before scheduling.</p>
+            </div>
+            <div className="closing-actions"><PhoneLink location="junk_removal_closing" /></div>
+          </div>
+        </section>
+      </main>
+
+      <SiteFooter homeHref="/#home" />
+      <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`} onClick={() => trackEvent("click_to_call", { link_location: "mobile_fixed_junk_removal" })}>
+        <Phone size={23} weight="fill" aria-hidden="true" /> Call Now
+      </a>
+      <QuoteModal quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} closeQuoteButton={closeQuoteButton} />
+    </>
+  );
+}
+
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
@@ -350,6 +430,19 @@ export function App() {
       document.body.style.overflow = previousOverflow;
     };
   }, [quoteOpen]);
+
+  if (window.location.pathname === "/junk-removal" || window.location.pathname === "/junk-removal/") {
+    return (
+      <JunkRemovalPage
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        quoteOpen={quoteOpen}
+        setQuoteOpen={setQuoteOpen}
+        openQuote={openQuote}
+        closeQuoteButton={closeQuoteButton}
+      />
+    );
+  }
 
   return (
     <>
