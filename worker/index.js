@@ -202,14 +202,7 @@ export default {
 
     if (url.pathname === "/api/leads") return handleLeadRequest(request, env);
 
-    let assetRequest = request;
-    if (["/junk-removal", "/junk-removal/"].includes(url.pathname)) {
-      const pageUrl = new URL(request.url);
-      pageUrl.pathname = "/junk-removal/index.html";
-      assetRequest = new Request(pageUrl, request);
-    }
-
-    let response = await env.ASSETS.fetch(assetRequest);
+    let response = await env.ASSETS.fetch(request);
     const acceptsHtml = request.headers.get("accept")?.includes("text/html");
 
     if (response.status === 404 && acceptsHtml && ["GET", "HEAD"].includes(request.method)) {
