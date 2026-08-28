@@ -15,11 +15,18 @@ function validLead(overrides = {}) {
     movingFrom: "Indianapolis, IN",
     movingTo: "Carmel, IN",
     moveDate: "2026-09-01",
+    service: "Local Moving",
     packingServices: "No",
     details: "Two-bedroom apartment",
     company: "",
     consent: true,
     turnstileToken: "test-token",
+    attribution: {
+      landingPage: "/services/?utm_source=google&utm_campaign=local-moving",
+      utm_source: "google",
+      utm_campaign: "local-moving",
+      gclid: "test-click-id",
+    },
     ...overrides,
   };
 }
@@ -37,7 +44,7 @@ test("serves static assets with security headers", async () => {
   assert.match(response.headers.get("content-security-policy"), /google-analytics\.com/);
 });
 
-test("falls back to index.html for an unknown app route", async () => {
+test("serves a real 404 page for an unknown HTML route", async () => {
   const calls = [];
   const response = await worker.fetch(
     new Request("https://example.test/flow/step-two?source=share", {
@@ -48,16 +55,17 @@ test("falls back to index.html for an unknown app route", async () => {
         fetch: async (request) => {
           const url = new URL(request.url);
           calls.push(url.pathname + url.search);
-          return new Response(url.pathname === "/index.html" ? "app" : "missing", {
-            status: url.pathname === "/index.html" ? 200 : 404,
+          return new Response(url.pathname === "/404.html" ? "not found" : "missing", {
+            status: url.pathname === "/404.html" ? 200 : 404,
           });
         },
       },
     },
   );
 
-  assert.equal(response.status, 200);
-  assert.deepEqual(calls, ["/flow/step-two?source=share", "/index.html"]);
+  assert.equal(response.status, 404);
+  assert.equal(await response.text(), "not found");
+  assert.deepEqual(calls, ["/flow/step-two?source=share", "/404.html"]);
 });
 
 test("redirects www traffic to the canonical domain", async () => {
@@ -90,7 +98,31 @@ test("accepts a validated quote and sends it to the fixed inbox", async () => {
   assert.equal(messages[0].to, "integritymovingservicellc@gmail.com");
   assert.match(messages[0].subject, /Indianapolis, IN to Carmel, IN/);
   assert.match(messages[0].text, /Test Customer/);
+  assert.match(messages[0].text, /Service requested: Local Moving/);
   assert.match(messages[0].text, /Packing services needed: No/);
+  assert.match(messages[0].text, /UTM campaign: local-moving/);
+  assert.match(messages[0].text, /Google click ID: test-click-id/);
+});
+
+test("redirects the clean services route to its canonical trailing-slash URL", async () => {
+  const response = await worker.fetch(
+    new Request("https://chooseintegritymoving.com/services?gclid=test-click", { headers: { accept: "text/html" } }),
+    { ASSETS: assetsReturning() },
+  );
+
+  assert.equal(response.status, 308);
+  assert.equal(response.headers.get("location"), "https://chooseintegritymoving.com/services/?gclid=test-click");
+});
+
+test("serves the services page at its canonical URL", async () => {
+  const calls = [];
+  const response = await worker.fetch(
+    new Request("https://chooseintegritymoving.com/services/", { headers: { accept: "text/html" } }),
+    { ASSETS: { fetch: async (request) => { calls.push(new URL(request.url).pathname); return new Response("services page"); } } },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ["/services/"]);
 });
 
 test("redirects the clean junk-removal route to its canonical trailing-slash URL", async () => {
@@ -178,9 +210,22 @@ test("rejects an invalid packing-services answer", async () => {
   assert.match((await response.json()).error, /packing services/i);
 });
 
+test("rejects an unsupported service selection", async () => {
+  const response = await worker.fetch(new Request("https://example.test/api/leads", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(validLead({ service: "Nationwide Moving" })),
+  }), {});
+
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /available service/i);
+});
+
 test("build emits the Cloudflare static asset entry point", async () => {
   await access(new URL("../dist/client/index.html", import.meta.url));
+  await access(new URL("../dist/client/services/index.html", import.meta.url));
   await access(new URL("../dist/client/junk-removal/index.html", import.meta.url));
+  await access(new URL("../dist/client/404.html", import.meta.url));
   await access(new URL("../dist/client/assets/placeholder-logo.JPEG", import.meta.url));
 });
 
@@ -190,6 +235,7 @@ test("build includes canonical metadata and truthful business schema", async () 
 
   assert.match(html, /rel="canonical" href="https:\/\/chooseintegritymoving\.com\/"/);
   assert.match(html, /"@type": "MovingCompany"/);
+  assert.match(html, /"@type": "OfferCatalog"/);
   assert.match(analytics, /G-F69TY2D1E6/);
   assert.doesNotMatch(html, /aggregateRating|BreadcrumbList/);
 });
@@ -200,7 +246,19 @@ test("build publishes crawler discovery files", async () => {
 
   assert.match(robots, /Sitemap: https:\/\/chooseintegritymoving\.com\/sitemap\.xml/);
   assert.match(sitemap, /<loc>https:\/\/chooseintegritymoving\.com\/<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/chooseintegritymoving\.com\/services\/<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/chooseintegritymoving\.com\/junk-removal\/<\/loc>/);
+});
+
+test("services page includes distinct metadata, service schema, and breadcrumbs", async () => {
+  const html = await readFile(new URL("../dist/client/services/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /<title>Moving Services in Indianapolis \| Integrity Moving Service<\/title>/);
+  assert.match(html, /rel="canonical" href="https:\/\/chooseintegritymoving\.com\/services\/"/);
+  assert.match(html, /"@type": "ItemList"/);
+  assert.match(html, /"@type": "Service"/);
+  assert.match(html, /"@type": "BreadcrumbList"/);
+  assert.match(html, /name="robots" content="noindex, nofollow"/);
 });
 
 test("junk-removal page includes approved SEO metadata and schema", async () => {

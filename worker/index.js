@@ -18,6 +18,9 @@ const SECURITY_HEADERS = {
   "x-frame-options": "DENY",
 };
 
+const APPROVED_SERVICES = new Set(["Local Moving", "Long-Distance Moving", "Storage Services", "Packing & Unpacking", "Junk Removal"]);
+const ATTRIBUTION_KEYS = ["gclid", "gbraid", "wbraid", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "landingPage", "referrer"];
+
 function withSecurityHeaders(response) {
   const headers = new Headers(response.headers);
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
@@ -54,6 +57,7 @@ function escapeHtml(value) {
 }
 
 function validateLead(raw) {
+  const rawAttribution = raw.attribution && typeof raw.attribution === "object" ? raw.attribution : {};
   const lead = {
     name: clean(raw.name, 100),
     email: clean(raw.email, 200),
@@ -61,18 +65,23 @@ function validateLead(raw) {
     movingFrom: clean(raw.movingFrom, 120),
     movingTo: clean(raw.movingTo, 120),
     moveDate: clean(raw.moveDate, 10),
+    service: clean(raw.service, 40),
     packingServices: clean(raw.packingServices, 3),
     details: clean(raw.details, 1500),
     company: clean(raw.company, 120),
     consent: raw.consent === true,
     turnstileToken: clean(raw.turnstileToken, 2048),
+    attribution: Object.fromEntries(ATTRIBUTION_KEYS.map((key) => [key, clean(rawAttribution[key], 250)])),
   };
 
   if (lead.company) return { lead, isBot: true };
 
   const phoneDigits = lead.phone.replace(/\D/g, "");
-  if (!lead.name || !lead.movingFrom || !lead.movingTo || !lead.moveDate || !lead.phone || !lead.packingServices) {
+  if (!lead.name || !lead.movingFrom || !lead.movingTo || !lead.moveDate || !lead.phone || !lead.service || !lead.packingServices) {
     return { error: "Please complete every required field." };
+  }
+  if (!APPROVED_SERVICES.has(lead.service)) {
+    return { error: "Please choose an available service." };
   }
   if (!["Yes", "No"].includes(lead.packingServices)) {
     return { error: "Please indicate whether packing services are needed." };
@@ -123,10 +132,19 @@ function formatLeadEmail(lead, request) {
     ["Moving from", lead.movingFrom],
     ["Moving to", lead.movingTo],
     ["Move date", lead.moveDate],
+    ["Service requested", lead.service],
     ["Packing services needed", lead.packingServices],
     ["Additional details", lead.details || "None provided"],
     ["Received", receivedAt],
     ["Website", new URL(request.url).hostname],
+    ["Landing page", lead.attribution.landingPage || "Not captured"],
+    ["Referrer", lead.attribution.referrer || "Not captured"],
+    ["UTM source", lead.attribution.utm_source || "Not captured"],
+    ["UTM medium", lead.attribution.utm_medium || "Not captured"],
+    ["UTM campaign", lead.attribution.utm_campaign || "Not captured"],
+    ["UTM term", lead.attribution.utm_term || "Not captured"],
+    ["UTM content", lead.attribution.utm_content || "Not captured"],
+    ["Google click ID", lead.attribution.gclid || lead.attribution.gbraid || lead.attribution.wbraid || "Not captured"],
   ];
 
   const text = [
@@ -140,12 +158,16 @@ function formatLeadEmail(lead, request) {
     + `<td style="padding:8px;border-bottom:1px solid #ddd">${escapeHtml(value).replace(/\n/g, "<br>")}</td></tr>`
   )).join("");
 
+  const subjectRoute = lead.service === "Junk Removal"
+    ? lead.movingFrom
+    : `${lead.movingFrom} to ${lead.movingTo}`;
+
   return {
     from: "quotes@chooseintegritymoving.com",
     to: "integritymovingservicellc@gmail.com",
-    subject: `New moving quote: ${lead.movingFrom} to ${lead.movingTo}`,
+    subject: `New ${lead.service} quote: ${subjectRoute}`,
     text,
-    html: `<h1 style="font-family:Arial,sans-serif">New moving quote request</h1><table style="border-collapse:collapse;font-family:Arial,sans-serif">${htmlRows}</table>`,
+    html: `<h1 style="font-family:Arial,sans-serif">New ${escapeHtml(lead.service)} quote request</h1><table style="border-collapse:collapse;font-family:Arial,sans-serif">${htmlRows}</table>`,
   };
 }
 
@@ -200,8 +222,8 @@ export default {
       return withSecurityHeaders(Response.redirect(url, 308));
     }
 
-    if (url.pathname === "/junk-removal" && ["GET", "HEAD"].includes(request.method)) {
-      url.pathname = "/junk-removal/";
+    if (["/services", "/junk-removal"].includes(url.pathname) && ["GET", "HEAD"].includes(request.method)) {
+      url.pathname = `${url.pathname}/`;
       return withSecurityHeaders(Response.redirect(url, 308));
     }
 
@@ -211,10 +233,14 @@ export default {
     const acceptsHtml = request.headers.get("accept")?.includes("text/html");
 
     if (response.status === 404 && acceptsHtml && ["GET", "HEAD"].includes(request.method)) {
-      const indexUrl = new URL(request.url);
-      indexUrl.pathname = "/index.html";
-      indexUrl.search = "";
-      response = await env.ASSETS.fetch(new Request(indexUrl, request));
+      const notFoundUrl = new URL(request.url);
+      notFoundUrl.pathname = "/404.html";
+      notFoundUrl.search = "";
+      const notFoundResponse = await env.ASSETS.fetch(new Request(notFoundUrl, request));
+      response = new Response(notFoundResponse.body, {
+        status: 404,
+        headers: notFoundResponse.headers,
+      });
     }
 
     return withSecurityHeaders(response);

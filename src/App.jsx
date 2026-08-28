@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle, List, MapPin, Phone, Star, X } from "@phosphor-icons/react";
-import { trackEvent } from "./analytics.js";
+import { ArrowRight, CheckCircle, House, List, MapPin, Package, Phone, Star, Trash, Truck, Warehouse, X } from "@phosphor-icons/react";
+import { getCampaignAttribution, trackEvent } from "./analytics.js";
 
 const PHONE_DISPLAY = "(317) 459-6279";
 const PHONE_HREF = "tel:+13174596279";
@@ -16,6 +16,8 @@ const processSteps = [
     body: "We get to know the details of your move and build a plan that fits your needs.",
     image: "/assets/before-move.png",
     alt: "Moving consultant and customer reviewing a move plan together",
+    width: 1448,
+    height: 1086,
   },
   {
     number: "02",
@@ -23,6 +25,8 @@ const processSteps = [
     body: "Our team arrives on time, works carefully, and keeps everything moving smoothly.",
     image: "/assets/hero-moving-crew.jpg",
     alt: "Moving crew carrying wrapped furniture toward a moving truck",
+    width: 1800,
+    height: 1200,
   },
   {
     number: "03",
@@ -30,6 +34,8 @@ const processSteps = [
     body: "We place your items with care and make sure you’re happy with everything.",
     image: "/assets/cta-boxes.jpg",
     alt: "Mover carrying boxes from a truck toward a home",
+    width: 1800,
+    height: 1013,
   },
 ];
 
@@ -39,12 +45,53 @@ const reviewHighlights = [
   { name: "Google customer", quote: "Very professional and on time!" },
 ];
 
+const serviceOptions = ["Local Moving", "Long-Distance Moving", "Storage Services", "Packing & Unpacking", "Junk Removal"];
+
+const marketingServices = [
+  {
+    id: "local-moving",
+    title: "Local Moving",
+    Icon: House,
+    summary: "Moving help for Indianapolis homes, apartments, and approved Indiana destinations.",
+    details: "Share both locations, property access, move size, and preferred date so the team can confirm availability and scope.",
+  },
+  {
+    id: "long-distance-moving",
+    title: "Long-Distance Moving",
+    Icon: Truck,
+    summary: "Route-specific moving requests that begin or end in Indiana.",
+    details: "Long-distance availability is confirmed for the specific route, date, move size, and access needs. No nationwide-service claim is made.",
+  },
+  {
+    id: "storage-services",
+    title: "Storage Services",
+    Icon: Warehouse,
+    summary: "Ask about available storage arrangements when pickup and delivery dates do not align.",
+    details: "Timing, handling, access, prohibited items, pricing, and the storage arrangement are confirmed for each request.",
+  },
+  {
+    id: "packing-unpacking",
+    title: "Packing & Unpacking",
+    Icon: Package,
+    summary: "Request partial or broader packing support as part of the moving plan.",
+    details: "List the rooms, fragile items, timing, and material needs so the requested packing scope can be reviewed with the move.",
+  },
+  {
+    id: "junk-removal",
+    title: "Junk Removal",
+    Icon: Trash,
+    summary: "Household junk-removal requests in Indianapolis, reviewed item by item before scheduling.",
+    details: "Share the item types, estimated volume, access, and pickup location. Hazardous, regulated, oversized, or restricted materials require review.",
+    href: "/junk-removal/",
+  },
+];
+
 function Brand({ homeHref = "/#home", showLogo = false }) {
   return (
     <a className={showLogo ? "brand brand--with-logo" : "brand"} href={homeHref} aria-label="Integrity Moving Service home">
       {showLogo && (
         <span className="brand-logo">
-          <img src="/assets/placeholder-logo.JPEG" alt="" aria-hidden="true" />
+          <img src="/assets/placeholder-logo.JPEG" alt="" aria-hidden="true" width="900" height="540" decoding="async" />
         </span>
       )}
       <span className="brand-copy">
@@ -67,10 +114,11 @@ function PhoneLink({ className = "phone-link", location }) {
   );
 }
 
-function QuoteForm() {
+function QuoteForm({ defaultService = "" }) {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [selectedService, setSelectedService] = useState(defaultService);
   const turnstileContainer = useRef(null);
   const turnstileWidgetId = useRef(null);
 
@@ -144,18 +192,20 @@ function QuoteForm() {
           movingFrom: formData.get("movingFrom"),
           movingTo: formData.get("movingTo"),
           moveDate: formData.get("moveDate"),
+          service: formData.get("service"),
           packingServices: formData.get("packingServices"),
           details: formData.get("details"),
           company: formData.get("company"),
           consent: formData.get("consent") === "yes",
           turnstileToken,
+          attribution: getCampaignAttribution(),
         }),
       });
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "We could not send your request.");
 
-      trackEvent("generate_lead", { method: "website_quote" });
+      trackEvent("generate_lead", { method: "website_quote", service_name: formData.get("service") });
       setStatus("success");
     } catch (submissionError) {
       setStatus("idle");
@@ -186,7 +236,7 @@ function QuoteForm() {
     <form className="quote-form" id="quote" onSubmit={submitQuote}>
       <div className="section-kicker" aria-hidden="true" />
       <h2>Get a Free Quote</h2>
-      <p className="form-intro">Tell Us About Your Move</p>
+      <p className="form-intro">{selectedService === "Junk Removal" ? "Tell Us About Your Pickup" : "Tell Us About Your Move"}</p>
 
       <label htmlFor="customer-name">Your Name</label>
       <input id="customer-name" name="name" autoComplete="name" maxLength="100" required />
@@ -194,19 +244,34 @@ function QuoteForm() {
       <label htmlFor="email-address">Email Address <span>(optional)</span></label>
       <input id="email-address" name="email" type="email" autoComplete="email" maxLength="200" />
 
-      <label htmlFor="moving-from">Moving From <span>(city or ZIP)</span></label>
+      <label htmlFor="moving-from">{selectedService === "Junk Removal" ? "Pickup Location" : "Moving From"} <span>(city or ZIP)</span></label>
       <div className="input-wrap">
         <MapPin size={21} weight="fill" aria-hidden="true" />
         <input id="moving-from" name="movingFrom" autoComplete="postal-code" maxLength="120" required />
       </div>
 
-      <label htmlFor="moving-to">Moving To <span>(city or ZIP)</span></label>
-      <div className="input-wrap">
-        <MapPin size={21} weight="fill" aria-hidden="true" />
-        <input id="moving-to" name="movingTo" autoComplete="postal-code" maxLength="120" required />
-      </div>
+      <label htmlFor="service-type">Service Needed</label>
+      <select id="service-type" name="service" value={selectedService} onChange={(event) => setSelectedService(event.target.value)} required>
+        <option value="" disabled>Select a service</option>
+        {serviceOptions.map((service) => <option value={service} key={service}>{service}</option>)}
+      </select>
 
-      <label htmlFor="move-date">Move Date</label>
+      {selectedService === "Junk Removal" ? (
+        <>
+          <input name="movingTo" type="hidden" value="Not applicable — junk removal" />
+          <p className="field-note">Only the pickup location is needed for a junk-removal request.</p>
+        </>
+      ) : (
+        <>
+          <label htmlFor="moving-to">Moving To <span>(city or ZIP)</span></label>
+          <div className="input-wrap">
+            <MapPin size={21} weight="fill" aria-hidden="true" />
+            <input id="moving-to" name="movingTo" autoComplete="postal-code" maxLength="120" required />
+          </div>
+        </>
+      )}
+
+      <label htmlFor="move-date">{selectedService === "Junk Removal" ? "Preferred Service Date" : "Move Date"}</label>
       <input id="move-date" name="moveDate" type="date" required />
 
       <label htmlFor="phone-number">Phone Number</label>
@@ -215,17 +280,21 @@ function QuoteForm() {
         <input id="phone-number" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength="30" required />
       </div>
 
-      <fieldset className="packing-choice">
-        <legend>Do you need packing services?</legend>
-        <label>
-          <input name="packingServices" type="radio" value="Yes" required />
-          <span>Yes</span>
-        </label>
-        <label>
-          <input name="packingServices" type="radio" value="No" required />
-          <span>No</span>
-        </label>
-      </fieldset>
+      {selectedService === "Junk Removal" ? (
+        <input name="packingServices" type="hidden" value="No" />
+      ) : (
+        <fieldset className="packing-choice">
+          <legend>Do you need packing services?</legend>
+          <label>
+            <input name="packingServices" type="radio" value="Yes" required />
+            <span>Yes</span>
+          </label>
+          <label>
+            <input name="packingServices" type="radio" value="No" required />
+            <span>No</span>
+          </label>
+        </fieldset>
+      )}
 
       <label htmlFor="move-details">Anything Else We Should Know? <span>(optional)</span></label>
       <textarea id="move-details" name="details" rows="4" maxLength="1500" />
@@ -253,7 +322,7 @@ function QuoteForm() {
   );
 }
 
-function SiteHeader({ menuOpen, setMenuOpen, openQuote, onHomePage = false }) {
+function SiteHeader({ menuOpen, setMenuOpen, openQuote, onHomePage = false, defaultService = "" }) {
   const sectionPrefix = onHomePage ? "" : "/";
   const closeMenu = () => setMenuOpen(false);
 
@@ -276,13 +345,13 @@ function SiteHeader({ menuOpen, setMenuOpen, openQuote, onHomePage = false }) {
         </button>
         <nav id="primary-navigation" className={menuOpen ? "nav-links nav-links--open" : "nav-links"} aria-label="Primary navigation">
           <a href={`${sectionPrefix}#home`} onClick={closeMenu}>Home</a>
-          <a href={`${sectionPrefix}#services`} onClick={closeMenu}>Services</a>
+          <a href="/services/" onClick={closeMenu}>Services</a>
           <a href="/junk-removal/" onClick={closeMenu}>Junk Removal</a>
           <a href={`${sectionPrefix}#about`} onClick={closeMenu}>About</a>
           <a href={`${sectionPrefix}#reviews`} onClick={closeMenu}>Reviews</a>
           <a href={`${sectionPrefix}#contact`} onClick={closeMenu}>Contact</a>
         </nav>
-        <button className="button button--primary nav-quote" type="button" onClick={() => openQuote("navigation")}>Get a Free Quote</button>
+        <button className="button button--primary nav-quote" type="button" onClick={() => openQuote("navigation", defaultService)}>Get a Free Quote</button>
       </div>
     </header>
   );
@@ -292,13 +361,13 @@ function SiteFooter({ homeHref = "/#home" }) {
   return (
     <footer className="footer">
       <Brand homeHref={homeHref} />
-      <p>Pre-execution website template. Services, areas, photographs, and claims require approval before publication.</p>
+      <p>Pre-execution website. Search indexing, advertising launch, and expanded service areas require separate written approval.</p>
       <a href={homeHref}>Back to top</a>
     </footer>
   );
 }
 
-function QuoteModal({ quoteOpen, setQuoteOpen, closeQuoteButton }) {
+function QuoteModal({ quoteOpen, setQuoteOpen, closeQuoteButton, defaultService = "" }) {
   if (!quoteOpen) return null;
 
   return (
@@ -315,17 +384,87 @@ function QuoteModal({ quoteOpen, setQuoteOpen, closeQuoteButton }) {
         >
           <X size={28} weight="bold" aria-hidden="true" />
         </button>
-        <QuoteForm />
+        <QuoteForm key={defaultService || "general"} defaultService={defaultService} />
       </section>
     </div>
   );
 }
 
-function JunkRemovalPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQuote, closeQuoteButton }) {
+function ServiceCards({ openQuote }) {
+  return (
+    <div className="marketing-service-grid">
+      {marketingServices.map(({ id, title, Icon, summary, details, href }) => (
+        <article className="marketing-service-card" id={id} key={id}>
+          <Icon size={42} weight="fill" aria-hidden="true" />
+          <h3>{title}</h3>
+          <p>{summary}</p>
+          <p className="service-detail">{details}</p>
+          <div className="service-card-actions">
+            <button className="button button--primary" type="button" onClick={() => openQuote(`service_${id}`, title)}>Request a Quote</button>
+            {href && <a className="text-link" href={href}>View service details <ArrowRight size={18} weight="bold" aria-hidden="true" /></a>}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ServicesPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQuote, closeQuoteButton, quoteService }) {
   return (
     <>
       <a className="skip-link" href="#main-content">Skip to content</a>
       <SiteHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} openQuote={openQuote} />
+      <main id="main-content" className="service-page">
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          <ol><li><a href="/">Home</a></li><li aria-current="page">Services</li></ol>
+        </nav>
+        <section className="service-hero services-hero" aria-labelledby="services-page-title">
+          <div className="service-hero__copy">
+            <p className="eyebrow">Moving, packing, storage, and cleanout support</p>
+            <h1 id="services-page-title">Moving Services in Indianapolis</h1>
+            <span className="red-rule" aria-hidden="true" />
+            <p>Choose the service that matches your move, then share the route, timing, access, and item details needed for an accurate conversation.</p>
+            <div className="hero-actions">
+              <button className="button button--primary" type="button" onClick={() => openQuote("services_hero")}>Get a Free Quote</button>
+              <PhoneLink location="services_hero" />
+            </div>
+          </div>
+        </section>
+        <section className="services-catalog section" aria-labelledby="services-catalog-title">
+          <div className="catalog-heading">
+            <p className="eyebrow eyebrow--dark">Choose your service</p>
+            <h2 id="services-catalog-title">Build the Request Around the Work</h2>
+            <p>Every quote is confirmed from the specific addresses, service needs, access, inventory, and schedule. Website descriptions do not replace the written scope.</p>
+          </div>
+          <ServiceCards openQuote={openQuote} />
+        </section>
+        <section className="service-steps" aria-labelledby="services-process-title">
+          <div className="section service-steps__inner">
+            <p className="eyebrow eyebrow--dark">Quote-ready details</p>
+            <h2 id="services-process-title">What to Include in Your Request</h2>
+            <div className="service-step-grid">
+              <article><span>01</span><h3>Locations</h3><p>Provide the full origin and destination plus stairs, elevators, parking, and loading access.</p></article>
+              <article><span>02</span><h3>Timing</h3><p>Share the preferred move date and any building, closing, storage, or delivery timing constraints.</p></article>
+              <article><span>03</span><h3>Scope</h3><p>Describe the move size, important items, packing needs, and any service-specific limitations.</p></article>
+            </div>
+          </div>
+        </section>
+        <section className="closing" id="contact" aria-labelledby="services-cta-title">
+          <div className="closing-copy"><div className="closing-message"><div className="section-kicker" aria-hidden="true" /><h2 id="services-cta-title">Start With the Right Details.</h2><p>Tell Integrity what you need, where the work begins and ends, and when you want it completed.</p></div><div className="closing-actions"><button className="button button--primary" type="button" onClick={() => openQuote("services_closing")}>Request a Quote</button><PhoneLink location="services_closing" /></div></div>
+        </section>
+      </main>
+      <SiteFooter homeHref="/#home" />
+      <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`} onClick={() => trackEvent("click_to_call", { link_location: "mobile_fixed_services" })}><Phone size={23} weight="fill" aria-hidden="true" /> Call Now</a>
+      <QuoteModal quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} closeQuoteButton={closeQuoteButton} defaultService={quoteService} />
+    </>
+  );
+}
+
+function JunkRemovalPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQuote, closeQuoteButton, quoteService }) {
+  return (
+    <>
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <SiteHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} openQuote={openQuote} defaultService="Junk Removal" />
 
       <main id="main-content" className="service-page">
         <nav className="breadcrumbs" aria-label="Breadcrumb">
@@ -342,6 +481,7 @@ function JunkRemovalPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQ
             <span className="red-rule" aria-hidden="true" />
             <p>Clear out unwanted household items with a straightforward plan and a team focused on careful, respectful service.</p>
             <div className="hero-actions">
+              <button className="button button--primary" type="button" onClick={() => openQuote("junk_removal_hero", "Junk Removal")}>Request a Junk-Removal Quote</button>
               <PhoneLink location="junk_removal_hero" />
               <a className="button button--outline-light" href="#junk-removal-details">Learn What to Expect</a>
             </div>
@@ -386,7 +526,7 @@ function JunkRemovalPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQ
               <h2 id="junk-cta-title">Ask About Junk Removal</h2>
               <p>Call with a description of the items and the pickup location. Availability and service details will be confirmed before scheduling.</p>
             </div>
-            <div className="closing-actions"><PhoneLink location="junk_removal_closing" /></div>
+            <div className="closing-actions"><button className="button button--primary" type="button" onClick={() => openQuote("junk_removal_closing", "Junk Removal")}>Request a Quote</button><PhoneLink location="junk_removal_closing" /></div>
           </div>
         </section>
       </main>
@@ -395,7 +535,7 @@ function JunkRemovalPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQ
       <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`} onClick={() => trackEvent("click_to_call", { link_location: "mobile_fixed_junk_removal" })}>
         <Phone size={23} weight="fill" aria-hidden="true" /> Call Now
       </a>
-      <QuoteModal quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} closeQuoteButton={closeQuoteButton} />
+      <QuoteModal quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} closeQuoteButton={closeQuoteButton} defaultService={quoteService || "Junk Removal"} />
     </>
   );
 }
@@ -403,10 +543,12 @@ function JunkRemovalPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQ
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [quoteService, setQuoteService] = useState("");
   const closeQuoteButton = useRef(null);
 
-  function openQuote(ctaLocation) {
-    trackEvent("quote_form_open", { cta_location: ctaLocation });
+  function openQuote(ctaLocation, service = "") {
+    setQuoteService(service);
+    trackEvent("quote_form_open", { cta_location: ctaLocation, service_name: service || "Not selected" });
     setQuoteOpen(true);
   }
 
@@ -431,6 +573,10 @@ export function App() {
     };
   }, [quoteOpen]);
 
+  if (window.location.pathname === "/services" || window.location.pathname === "/services/") {
+    return <ServicesPage menuOpen={menuOpen} setMenuOpen={setMenuOpen} quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} openQuote={openQuote} closeQuoteButton={closeQuoteButton} quoteService={quoteService} />;
+  }
+
   if (window.location.pathname === "/junk-removal" || window.location.pathname === "/junk-removal/") {
     return (
       <JunkRemovalPage
@@ -440,6 +586,7 @@ export function App() {
         setQuoteOpen={setQuoteOpen}
         openQuote={openQuote}
         closeQuoteButton={closeQuoteButton}
+        quoteService={quoteService}
       />
     );
   }
@@ -453,12 +600,12 @@ export function App() {
       <main id="main-content">
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-photo">
-            <img src="/assets/hero-moving-crew.jpg" alt="Moving crew carefully carrying wrapped furniture toward a moving truck" />
+            <img src="/assets/hero-moving-crew.jpg" alt="Moving crew carefully carrying wrapped furniture toward a moving truck" width="1800" height="1200" fetchPriority="high" />
             <div className="hero-copy">
-              <p className="eyebrow">Clear planning. Careful moving.</p>
-            <h1 id="hero-title">Moving With Care.<br />From Start to Finish.</h1>
+              <p className="eyebrow">Indianapolis moving service</p>
+            <h1 id="hero-title">Indianapolis Moving.<br />Handled With Care.</h1>
               <span className="red-rule" aria-hidden="true" />
-              <p>Your move deserves a clear plan and a team that respects the details.</p>
+              <p>Request local or long-distance moving, packing, storage, or junk-removal help with a plan built from the real details.</p>
               <div className="hero-actions">
                 <button className="button button--primary" type="button" onClick={() => openQuote("hero")}>Get a Free Quote</button>
                 <PhoneLink location="hero" />
@@ -471,7 +618,7 @@ export function App() {
 
         <section className="story section" id="about" aria-labelledby="story-title">
           <div className="story-image">
-            <img src="/assets/careful-wrapping.jpg" alt="Mover carefully wrapping a chair inside a home" />
+            <img src="/assets/careful-wrapping.jpg" alt="Mover carefully wrapping a chair inside a home" width="960" height="1200" loading="lazy" decoding="async" />
           </div>
           <div className="story-copy">
             <div className="section-kicker" aria-hidden="true" />
@@ -524,13 +671,23 @@ export function App() {
           </div>
         </section>
 
-        <section className="process section" id="services" aria-labelledby="process-title">
+        <section className="services-catalog section" id="services" aria-labelledby="home-services-title">
+          <div className="catalog-heading">
+            <p className="eyebrow eyebrow--dark">Ways we can help</p>
+            <h2 id="home-services-title">Moving and Related Services</h2>
+            <p>Start with the service that best matches your request. Availability and final scope are confirmed from the move details.</p>
+          </div>
+          <ServiceCards openQuote={openQuote} />
+          <a className="text-link services-all-link" href="/services/">Explore all service details <ArrowRight size={18} weight="bold" aria-hidden="true" /></a>
+        </section>
+
+        <section className="process section" id="process" aria-labelledby="process-title">
           <h2 className="visually-hidden" id="process-title">A simple moving process</h2>
           <div className="process-grid">
-            {processSteps.map(({ number, title, body, image, alt }) => (
+            {processSteps.map(({ number, title, body, image, alt, width, height }) => (
               <article className="process-step" key={number}>
                 <div className="step-heading"><span>{number}</span><h3>{title}</h3></div>
-                <img src={image} alt={alt} />
+                <img src={image} alt={alt} width={width} height={height} loading="lazy" decoding="async" />
                 <p>{body}</p>
               </article>
             ))}
@@ -558,7 +715,7 @@ export function App() {
         <Phone size={23} weight="fill" aria-hidden="true" /> Call Now
       </a>
 
-      <QuoteModal quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} closeQuoteButton={closeQuoteButton} />
+      <QuoteModal quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} closeQuoteButton={closeQuoteButton} defaultService={quoteService} />
     </>
   );
 }
