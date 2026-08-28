@@ -61,6 +61,7 @@ function validateLead(raw) {
     movingFrom: clean(raw.movingFrom, 120),
     movingTo: clean(raw.movingTo, 120),
     moveDate: clean(raw.moveDate, 10),
+    packingServices: clean(raw.packingServices, 3),
     details: clean(raw.details, 1500),
     company: clean(raw.company, 120),
     consent: raw.consent === true,
@@ -70,8 +71,11 @@ function validateLead(raw) {
   if (lead.company) return { lead, isBot: true };
 
   const phoneDigits = lead.phone.replace(/\D/g, "");
-  if (!lead.name || !lead.movingFrom || !lead.movingTo || !lead.moveDate || !lead.phone) {
+  if (!lead.name || !lead.movingFrom || !lead.movingTo || !lead.moveDate || !lead.phone || !lead.packingServices) {
     return { error: "Please complete every required field." };
+  }
+  if (!["Yes", "No"].includes(lead.packingServices)) {
+    return { error: "Please indicate whether packing services are needed." };
   }
   if (phoneDigits.length < 10 || phoneDigits.length > 15) {
     return { error: "Please enter a valid phone number." };
@@ -119,6 +123,7 @@ function formatLeadEmail(lead, request) {
     ["Moving from", lead.movingFrom],
     ["Moving to", lead.movingTo],
     ["Move date", lead.moveDate],
+    ["Packing services needed", lead.packingServices],
     ["Additional details", lead.details || "None provided"],
     ["Received", receivedAt],
     ["Website", new URL(request.url).hostname],
@@ -197,7 +202,14 @@ export default {
 
     if (url.pathname === "/api/leads") return handleLeadRequest(request, env);
 
-    let response = await env.ASSETS.fetch(request);
+    let assetRequest = request;
+    if (["/junk-removal", "/junk-removal/"].includes(url.pathname)) {
+      const pageUrl = new URL(request.url);
+      pageUrl.pathname = "/junk-removal/index.html";
+      assetRequest = new Request(pageUrl, request);
+    }
+
+    let response = await env.ASSETS.fetch(assetRequest);
     const acceptsHtml = request.headers.get("accept")?.includes("text/html");
 
     if (response.status === 404 && acceptsHtml && ["GET", "HEAD"].includes(request.method)) {

@@ -39,11 +39,19 @@ const reviewHighlights = [
   { name: "Google customer", quote: "Very professional and on time!" },
 ];
 
-function Brand() {
+function Brand({ homeHref = "/#home", showPlaceholderLogo = false }) {
   return (
-    <a className="brand" href="#home" aria-label="Integrity Moving Service home">
-      <span>Integrity</span>
-      <small>Moving Service</small>
+    <a className={showPlaceholderLogo ? "brand brand--with-logo" : "brand"} href={homeHref} aria-label="Integrity Moving Service home">
+      {showPlaceholderLogo && (
+        <span className="brand-logo-placeholder">
+          <img src="/assets/placeholder-logo.JPEG" alt="" aria-hidden="true" />
+          <em>Draft</em>
+        </span>
+      )}
+      <span className="brand-copy">
+        <strong>Integrity</strong>
+        <small>Moving Service</small>
+      </span>
     </a>
   );
 }
@@ -137,6 +145,7 @@ function QuoteForm() {
           movingFrom: formData.get("movingFrom"),
           movingTo: formData.get("movingTo"),
           moveDate: formData.get("moveDate"),
+          packingServices: formData.get("packingServices"),
           details: formData.get("details"),
           company: formData.get("company"),
           consent: formData.get("consent") === "yes",
@@ -207,6 +216,18 @@ function QuoteForm() {
         <input id="phone-number" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength="30" required />
       </div>
 
+      <fieldset className="packing-choice">
+        <legend>Do you need packing services?</legend>
+        <label>
+          <input name="packingServices" type="radio" value="Yes" required />
+          <span>Yes</span>
+        </label>
+        <label>
+          <input name="packingServices" type="radio" value="No" required />
+          <span>No</span>
+        </label>
+      </fieldset>
+
       <label htmlFor="move-details">Anything Else We Should Know? <span>(optional)</span></label>
       <textarea id="move-details" name="details" rows="4" maxLength="1500" />
 
@@ -230,6 +251,157 @@ function QuoteForm() {
       </button>
       <p className="form-note">No payment required to start your quote.</p>
     </form>
+  );
+}
+
+function SiteHeader({ menuOpen, setMenuOpen, openQuote, onHomePage = false }) {
+  const sectionPrefix = onHomePage ? "" : "/";
+  const closeMenu = () => setMenuOpen(false);
+
+  return (
+    <header className="site-header" id="home">
+      <div className="phone-strip">
+        <PhoneLink location="top_bar" />
+      </div>
+      <div className="nav-shell">
+        <Brand homeHref={onHomePage ? "#home" : "/#home"} showPlaceholderLogo />
+        <button
+          className="menu-button"
+          type="button"
+          aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={menuOpen}
+          aria-controls="primary-navigation"
+          onClick={() => setMenuOpen((value) => !value)}
+        >
+          {menuOpen ? <X size={30} /> : <List size={30} />}
+        </button>
+        <nav id="primary-navigation" className={menuOpen ? "nav-links nav-links--open" : "nav-links"} aria-label="Primary navigation">
+          <a href={`${sectionPrefix}#home`} onClick={closeMenu}>Home</a>
+          <a href={`${sectionPrefix}#services`} onClick={closeMenu}>Services</a>
+          <a href="/junk-removal/" onClick={closeMenu}>Junk Removal</a>
+          <a href={`${sectionPrefix}#about`} onClick={closeMenu}>About</a>
+          <a href={`${sectionPrefix}#reviews`} onClick={closeMenu}>Reviews</a>
+          <a href={`${sectionPrefix}#contact`} onClick={closeMenu}>Contact</a>
+        </nav>
+        <button className="button button--primary nav-quote" type="button" onClick={() => openQuote("navigation")}>Get a Free Quote</button>
+      </div>
+    </header>
+  );
+}
+
+function SiteFooter({ homeHref = "/#home" }) {
+  return (
+    <footer className="footer">
+      <Brand homeHref={homeHref} />
+      <p>Pre-execution website template. Services, areas, photographs, and claims require approval before publication.</p>
+      <a href={homeHref}>Back to top</a>
+    </footer>
+  );
+}
+
+function QuoteModal({ quoteOpen, setQuoteOpen, closeQuoteButton }) {
+  if (!quoteOpen) return null;
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) setQuoteOpen(false);
+    }}>
+      <section className="quote-modal" role="dialog" aria-modal="true" aria-label="Request a moving quote">
+        <button
+          className="modal-close"
+          type="button"
+          aria-label="Close quote form"
+          onClick={() => setQuoteOpen(false)}
+          ref={closeQuoteButton}
+        >
+          <X size={28} weight="bold" aria-hidden="true" />
+        </button>
+        <QuoteForm />
+      </section>
+    </div>
+  );
+}
+
+function JunkRemovalPage({ menuOpen, setMenuOpen, quoteOpen, setQuoteOpen, openQuote, closeQuoteButton }) {
+  return (
+    <>
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <SiteHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} openQuote={openQuote} />
+
+      <main id="main-content" className="service-page">
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          <ol>
+            <li><a href="/">Home</a></li>
+            <li aria-current="page">Junk Removal</li>
+          </ol>
+        </nav>
+
+        <section className="service-hero" aria-labelledby="junk-removal-title">
+          <div className="service-hero__copy">
+            <p className="eyebrow">Pre-execution service draft</p>
+            <h1 id="junk-removal-title">Junk Removal in Indianapolis</h1>
+            <span className="red-rule" aria-hidden="true" />
+            <p>Clear out unwanted household items with a straightforward plan and a team focused on careful, respectful service.</p>
+            <div className="hero-actions">
+              <PhoneLink location="junk_removal_hero" />
+              <a className="button button--outline-light" href="#junk-removal-details">Learn What to Expect</a>
+            </div>
+          </div>
+        </section>
+
+        <aside className="draft-notice" role="note">
+          <strong>Approval required:</strong> Junk-removal availability, accepted items, service area, pricing, and operating details must be confirmed by Daniel Saunders before publication or indexing.
+        </aside>
+
+        <section className="service-content section" id="junk-removal-details" aria-labelledby="junk-details-title">
+          <div>
+            <p className="eyebrow eyebrow--dark">A simpler cleanout</p>
+            <h2 id="junk-details-title">Help With Household Junk and Unwanted Items</h2>
+          </div>
+          <div className="service-copy-grid">
+            <p>Common requests may include unwanted furniture, boxed household items, and non-hazardous clutter. Every request is reviewed first so the item type, access, volume, and scheduling needs are clear.</p>
+            <p>We do not assume that every material can be removed. Hazardous, regulated, oversized, or restricted items require separate confirmation and may not be accepted.</p>
+          </div>
+        </section>
+
+        <section className="service-steps" aria-labelledby="junk-process-title">
+          <div className="section service-steps__inner">
+            <p className="eyebrow eyebrow--dark">What to expect</p>
+            <h2 id="junk-process-title">A Clear Three-Step Process</h2>
+            <div className="service-step-grid">
+              <article><span>01</span><h3>Describe the Items</h3><p>Share what needs to go, where it is located, and any access details.</p></article>
+              <article><span>02</span><h3>Confirm the Scope</h3><p>Integrity confirms availability, accepted items, timing, and any important limitations.</p></article>
+              <article><span>03</span><h3>Schedule the Removal</h3><p>Once the details are approved, choose an available time for the requested service.</p></article>
+            </div>
+          </div>
+        </section>
+
+        <section className="service-faq section" aria-labelledby="junk-faq-title">
+          <p className="eyebrow eyebrow--dark">Junk removal questions</p>
+          <h2 id="junk-faq-title">Frequently Asked Questions</h2>
+          <details><summary>What items can Integrity remove?</summary><p>Accepted items are confirmed case by case. Send a description or photos before scheduling so the team can identify any restricted or unsupported materials.</p></details>
+          <details><summary>Is same-day junk removal available?</summary><p>Availability is not guaranteed. Call to confirm the current schedule and whether the requested work can be accommodated.</p></details>
+          <details><summary>Do you remove hazardous materials?</summary><p>No hazardous-material service is claimed on this draft page. Ask about the specific material before making plans.</p></details>
+        </section>
+
+        <section className="closing" id="contact" aria-labelledby="junk-cta-title">
+          <div className="closing-copy">
+            <div className="closing-message">
+              <div className="section-kicker" aria-hidden="true" />
+              <h2 id="junk-cta-title">Ask About Junk Removal</h2>
+              <p>Call with a description of the items and the pickup location. Availability and service details will be confirmed before scheduling.</p>
+            </div>
+            <div className="closing-actions"><PhoneLink location="junk_removal_closing" /></div>
+          </div>
+        </section>
+      </main>
+
+      <SiteFooter homeHref="/#home" />
+      <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`} onClick={() => trackEvent("click_to_call", { link_location: "mobile_fixed_junk_removal" })}>
+        <Phone size={23} weight="fill" aria-hidden="true" /> Call Now
+      </a>
+      <QuoteModal quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} closeQuoteButton={closeQuoteButton} />
+    </>
   );
 }
 
@@ -264,36 +436,24 @@ export function App() {
     };
   }, [quoteOpen]);
 
+  if (window.location.pathname === "/junk-removal" || window.location.pathname === "/junk-removal/") {
+    return (
+      <JunkRemovalPage
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        quoteOpen={quoteOpen}
+        setQuoteOpen={setQuoteOpen}
+        openQuote={openQuote}
+        closeQuoteButton={closeQuoteButton}
+      />
+    );
+  }
+
   return (
     <>
       <a className="skip-link" href="#main-content">Skip to content</a>
 
-      <header className="site-header" id="home">
-        <div className="phone-strip">
-          <PhoneLink location="top_bar" />
-        </div>
-        <div className="nav-shell">
-          <Brand />
-          <button
-            className="menu-button"
-            type="button"
-            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
-            aria-expanded={menuOpen}
-            aria-controls="primary-navigation"
-            onClick={() => setMenuOpen((value) => !value)}
-          >
-            {menuOpen ? <X size={30} /> : <List size={30} />}
-          </button>
-          <nav id="primary-navigation" className={menuOpen ? "nav-links nav-links--open" : "nav-links"} aria-label="Primary navigation">
-            <a href="#home" onClick={() => setMenuOpen(false)}>Home</a>
-            <a href="#services" onClick={() => setMenuOpen(false)}>Services</a>
-            <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
-            <a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a>
-            <a href="#contact" onClick={() => setMenuOpen(false)}>Contact</a>
-          </nav>
-          <button className="button button--primary nav-quote" type="button" onClick={() => openQuote("navigation")}>Get a Free Quote</button>
-        </div>
-      </header>
+      <SiteHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} openQuote={openQuote} onHomePage />
 
       <main id="main-content">
         <section className="hero" aria-labelledby="hero-title">
@@ -397,34 +557,13 @@ export function App() {
         </section>
       </main>
 
-      <footer className="footer">
-        <Brand />
-        <p>Pre-execution website template. Services, areas, photographs, and claims require approval before publication.</p>
-        <a href="#home">Back to top</a>
-      </footer>
+      <SiteFooter homeHref="#home" />
 
       <a className="mobile-call" href={PHONE_HREF} aria-label={`Call Integrity Moving Service at ${PHONE_DISPLAY}`} onClick={() => trackEvent("click_to_call", { link_location: "mobile_fixed" })}>
         <Phone size={23} weight="fill" aria-hidden="true" /> Call Now
       </a>
 
-      {quoteOpen && (
-        <div className="modal-backdrop" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setQuoteOpen(false);
-        }}>
-          <section className="quote-modal" role="dialog" aria-modal="true" aria-label="Request a moving quote">
-            <button
-              className="modal-close"
-              type="button"
-              aria-label="Close quote form"
-              onClick={() => setQuoteOpen(false)}
-              ref={closeQuoteButton}
-            >
-              <X size={28} weight="bold" aria-hidden="true" />
-            </button>
-            <QuoteForm />
-          </section>
-        </div>
-      )}
+      <QuoteModal quoteOpen={quoteOpen} setQuoteOpen={setQuoteOpen} closeQuoteButton={closeQuoteButton} />
     </>
   );
 }

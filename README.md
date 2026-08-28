@@ -6,6 +6,12 @@ High-performance, accessible website template for Integrity Moving Service, buil
 
 Pre-execution planning and staging only. The template is intentionally marked `noindex` until client approval and production launch.
 
+### Staged change-order work
+
+- `/junk-removal/` is a separate, SEO-ready service-page draft. Service availability, accepted items, coverage, and operating details require written client approval before indexing or publication.
+- The quote form records whether the customer needs packing services and includes the answer in the fixed-inbox notification.
+- The user-supplied “#1 Movers” image appears in the header only as a visibly marked staging placeholder. Its ranking claim and nationwide imagery are not approved for deployment, publication, indexing, advertising, or the Wix-domain cutover. Replace it with a compliant client-approved logo before launch.
+
 Before launch, confirm in writing:
 
 - final services and service areas
@@ -33,7 +39,7 @@ The build produces static client files in `dist/client`. The Worker in `worker/i
 
 The production site uses the client-owned GA4 stream `G-F69TY2D1E6`. It records page views, quote-form opens, completed quote requests, call-link clicks, and Google-review link clicks only on the production hostname. Advertising storage and personalization signals are denied by default.
 
-The homepage contains `MovingCompany` and `WebSite` JSON-LD using facts verified from the existing Google Business Profile on August 14, 2026. The profile is currently awaiting Google re-verification, so the site intentionally omits the street address, broad service areas, review/aggregate-rating schema, and unsupported claims. Breadcrumb markup is intentionally omitted while the site has only one real page.
+The homepage contains `MovingCompany` and `WebSite` JSON-LD using facts verified from the existing Google Business Profile on August 14, 2026. The profile is currently awaiting Google re-verification, so the site intentionally omits the street address, broad service areas, review/aggregate-rating schema, and unsupported claims. The staged junk-removal page includes page-specific `Service` and `BreadcrumbList` markup; the homepage intentionally omits breadcrumb markup.
 
 The Turnstile secret must be configured as a Cloudflare Worker secret named `TURNSTILE_SECRET`; it must never be committed. The email binding is restricted to `integritymovingservicellc@gmail.com` in `wrangler.jsonc`.
 

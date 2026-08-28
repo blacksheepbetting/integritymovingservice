@@ -15,6 +15,7 @@ function validLead(overrides = {}) {
     movingFrom: "Indianapolis, IN",
     movingTo: "Carmel, IN",
     moveDate: "2026-09-01",
+    packingServices: "No",
     details: "Two-bedroom apartment",
     company: "",
     consent: true,
@@ -89,6 +90,28 @@ test("accepts a validated quote and sends it to the fixed inbox", async () => {
   assert.equal(messages[0].to, "integritymovingservicellc@gmail.com");
   assert.match(messages[0].subject, /Indianapolis, IN to Carmel, IN/);
   assert.match(messages[0].text, /Test Customer/);
+  assert.match(messages[0].text, /Packing services needed: No/);
+});
+
+test("serves the dedicated junk-removal page for its clean route", async () => {
+  const calls = [];
+  const response = await worker.fetch(
+    new Request("https://chooseintegritymoving.com/junk-removal", {
+      headers: { accept: "text/html" },
+    }),
+    {
+      ASSETS: {
+        fetch: async (request) => {
+          const pathname = new URL(request.url).pathname;
+          calls.push(pathname);
+          return new Response("junk removal page", { status: 200 });
+        },
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ["/junk-removal/index.html"]);
 });
 
 test("rejects an expired security check without sending email", async () => {
@@ -132,8 +155,21 @@ test("rejects missing required lead fields", async () => {
   assert.match((await response.json()).error, /required/i);
 });
 
+test("rejects an invalid packing-services answer", async () => {
+  const response = await worker.fetch(new Request("https://example.test/api/leads", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(validLead({ packingServices: "Maybe" })),
+  }), {});
+
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /packing services/i);
+});
+
 test("build emits the Cloudflare static asset entry point", async () => {
   await access(new URL("../dist/client/index.html", import.meta.url));
+  await access(new URL("../dist/client/junk-removal/index.html", import.meta.url));
+  await access(new URL("../dist/client/assets/placeholder-logo.JPEG", import.meta.url));
 });
 
 test("build includes canonical metadata and truthful business schema", async () => {
@@ -152,4 +188,15 @@ test("build publishes crawler discovery files", async () => {
 
   assert.match(robots, /Sitemap: https:\/\/chooseintegritymoving\.com\/sitemap\.xml/);
   assert.match(sitemap, /<loc>https:\/\/chooseintegritymoving\.com\/<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/chooseintegritymoving\.com\/junk-removal\/<\/loc>/);
+});
+
+test("junk-removal page includes staged SEO metadata and schema", async () => {
+  const html = await readFile(new URL("../dist/client/junk-removal/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /<title>Junk Removal in Indianapolis \| Integrity Moving Service<\/title>/);
+  assert.match(html, /rel="canonical" href="https:\/\/chooseintegritymoving\.com\/junk-removal\/"/);
+  assert.match(html, /"@type": "Service"/);
+  assert.match(html, /"@type": "BreadcrumbList"/);
+  assert.match(html, /name="robots" content="noindex, nofollow"/);
 });
